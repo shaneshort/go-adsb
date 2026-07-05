@@ -46,6 +46,10 @@ func TestConst(t *testing.T) {
 		adsbtype.BDS02: "adsbtype.BDS: Linked Comm-B, segment 2",
 		adsbtype.SSS0:  "adsbtype.SSS: No condition information",
 		adsbtype.TRS0:  "adsbtype.TRS: No capability",
+		adsbtype.VRS0:  "adsbtype.VRS: GNSS",
+		adsbtype.VRS1:  "adsbtype.VRS: Barometric",
+		adsbtype.AST0:  "adsbtype.AST: Indicated airspeed (IAS)",
+		adsbtype.AST1:  "adsbtype.AST: True airspeed (TAS)",
 
 		adsbtype.TYPE0: "adsbtype.TYPE: No position information",
 	} {
@@ -72,6 +76,8 @@ func TestConstUnknown(t *testing.T) {
 		adsbtype.BDS(0x99): "adsbtype.BDS: Unknown value 99",
 		adsbtype.SSS(99):   "adsbtype.SSS: Unknown value 99",
 		adsbtype.TRS(99):   "adsbtype.TRS: Unknown value 99",
+		adsbtype.VRS(99):   "adsbtype.VRS: Unknown value 99",
+		adsbtype.AST(99):   "adsbtype.AST: Unknown value 99",
 
 		adsbtype.TYPE(99): "adsbtype.TYPE: Unknown value 99",
 	} {

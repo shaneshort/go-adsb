@@ -95,6 +95,52 @@ func (c TYPE) String() string {
 	return fmt.Sprintf("Unknown value %d", c)
 }
 
+// VRS is the vertical rate source subfield.
+type VRS uint64
+
+// Vertical Rate Source Subfield values.
+const (
+	VRS0 VRS = 0 // GNSS
+	VRS1 VRS = 1 // Barometric
+)
+
+var mVRS = map[VRS]string{
+	VRS0: "GNSS",
+	VRS1: "Barometric",
+}
+
+// String representation of VRS.
+func (c VRS) String() string {
+	if str, ok := mVRS[c]; ok {
+		return str
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
+// AST is the airspeed type subfield.
+type AST uint64
+
+// Airspeed Type Subfield values.
+const (
+	AST0 AST = 0 // Indicated airspeed (IAS)
+	AST1 AST = 1 // True airspeed (TAS)
+)
+
+var mAST = map[AST]string{
+	AST0: "Indicated airspeed (IAS)",
+	AST1: "True airspeed (TAS)",
+}
+
+// String representation of AST.
+func (c AST) String() string {
+	if str, ok := mAST[c]; ok {
+		return str
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
 // AcCat is the extended squitter aircraft emitter category.
 type AcCat string
 
