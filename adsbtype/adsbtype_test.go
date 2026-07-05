@@ -46,6 +46,8 @@ func TestConst(t *testing.T) {
 		adsbtype.BDS02: "adsbtype.BDS: Linked Comm-B, segment 2",
 		adsbtype.SSS0:  "adsbtype.SSS: No condition information",
 		adsbtype.TRS0:  "adsbtype.TRS: No capability",
+		adsbtype.D0:    "adsbtype.AcCat: No ADS-B emitter category information",
+		adsbtype.D2:    "adsbtype.AcCat: Reserved",
 		adsbtype.VRS0:  "adsbtype.VRS: GNSS",
 		adsbtype.VRS1:  "adsbtype.VRS: Barometric",
 		adsbtype.AST0:  "adsbtype.AST: Indicated airspeed (IAS)",

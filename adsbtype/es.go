@@ -144,6 +144,13 @@ func (c AST) String() string {
 // AcCat is the extended squitter aircraft emitter category.
 type AcCat string
 
+// Repeated AcCat descriptions. A category code of 0 always indicates no
+// category information regardless of the set, and several codes are reserved.
+const (
+	acCatNoInfo   = "No ADS-B emitter category information"
+	acCatReserved = "Reserved"
+)
+
 // Extended squitter aircraft emitter category values.
 const (
 	A0 AcCat = "A0" // No ADS-B emitter category information
@@ -172,10 +179,19 @@ const (
 	C5 AcCat = "C5" // Line obstacle
 	C6 AcCat = "C6" // Reserved
 	C7 AcCat = "C7" // Reserved
+
+	D0 AcCat = "D0" // No ADS-B emitter category information (set D reserved)
+	D1 AcCat = "D1" // Reserved
+	D2 AcCat = "D2" // Reserved
+	D3 AcCat = "D3" // Reserved
+	D4 AcCat = "D4" // Reserved
+	D5 AcCat = "D5" // Reserved
+	D6 AcCat = "D6" // Reserved
+	D7 AcCat = "D7" // Reserved
 )
 
 var mAcCat = map[AcCat]string{
-	A0: "No ADS-B emitter category information",
+	A0: acCatNoInfo,
 	A1: "Light (< 15500 lbs)",
 	A2: "Small (15500 to 75000 lbs)",
 	A3: "Large (75000 to 300000 lbs)",
@@ -183,22 +199,30 @@ var mAcCat = map[AcCat]string{
 	A5: "Heavy (> 300000 lbs)",
 	A6: "High performance (> 5g acceleration and 400 kts)",
 	A7: "Rotorcraft",
-	B0: "No ADS-B emitter category information",
+	B0: acCatNoInfo,
 	B1: "Glider / sailplane",
 	B2: "Lighter-than-air",
 	B3: "Parachutist / skydiver",
 	B4: "Ultralight / hang-glider / paraglider",
-	B5: "Reserved",
+	B5: acCatReserved,
 	B6: "Unmanned aerial vehicle",
 	B7: "Space / trans-atmospheric vehicle",
-	C0: "No ADS-B emitter category information",
+	C0: acCatNoInfo,
 	C1: "Surface vehicle – emergency vehicle",
 	C2: "Surface vehicle – service vehicle",
 	C3: "Point obstacle (includes tethered balloons)",
 	C4: "Cluster obstacle",
 	C5: "Line obstacle",
-	C6: "Reserved",
-	C7: "Reserved",
+	C6: acCatReserved,
+	C7: acCatReserved,
+	D0: acCatNoInfo,
+	D1: acCatReserved,
+	D2: acCatReserved,
+	D3: acCatReserved,
+	D4: acCatReserved,
+	D5: acCatReserved,
+	D6: acCatReserved,
+	D7: acCatReserved,
 }
 
 // String representation of AcCat.
