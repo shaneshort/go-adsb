@@ -32,6 +32,8 @@ const (
 	surfacePosTypeHi = 8
 	airPosTypeLo     = 9 // TC 9-18: airborne barometric position (BDS 0,5)
 	airPosTypeHi     = 18
+	gnssPosTypeLo    = 20 // TC 20-22: airborne GNSS-height position (BDS 0,5)
+	gnssPosTypeHi    = 22
 
 	// CPR coordinate range in degrees: airborne spans the globe, surface a
 	// quarter of it.

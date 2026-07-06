@@ -73,6 +73,31 @@ func ExampleMessage_SurfaceMovement() {
 	// track: 92.8125 degrees
 }
 
+// ExampleMessage_AltitudeSource shows a GNSS-height airborne position (type
+// codes 20-22). The altitude is decoded identically to barometric altitude
+// but reported as geometric.
+func ExampleMessage_AltitudeSource() {
+	msg := exampleMessage("8D40621DA0C382D690C8AC2863A7") // type code 20
+
+	alt, err := msg.Alt()
+	if err != nil {
+		fmt.Println(err)
+
+		return
+	}
+
+	src, err := msg.AltitudeSource()
+	if err != nil {
+		fmt.Println(err)
+
+		return
+	}
+
+	fmt.Printf("%d ft (%s)\n", alt, src)
+
+	// Output: 38000 ft (Geometric)
+}
+
 // ExampleCPR_DecodeLocal decodes a surface position against a nearby
 // reference point. A single surface message is resolved against a known
 // location such as the receiver; the reference is passed as

@@ -122,6 +122,39 @@ func (m *Message) Alt() (int64, error) {
 	}
 }
 
+// AltitudeSource returns the reference frame of the altitude reported by
+// Alt: barometric for surveillance replies (DF 0/4/16/20) and airborne
+// position type codes 9-18, and geometric (GNSS height above the ellipsoid)
+// for type codes 20-22. It returns an error wrapping ErrNotAvailable when the
+// message carries no altitude.
+func (m *Message) AltitudeSource() (AltitudeSource, error) {
+	df, err := m.raw.DF()
+	if err != nil {
+		return 0, newError(err, "error retrieving altitude source")
+	}
+
+	switch df {
+	case 0, 4, 16, 20:
+		return AltitudeBarometric, nil
+	case 17, 18:
+		tc, err := m.raw.ESType()
+		if err != nil {
+			return 0, newError(err, "error retrieving altitude source")
+		}
+
+		switch {
+		case tc >= airPosTypeLo && tc <= airPosTypeHi:
+			return AltitudeBarometric, nil
+		case tc >= gnssPosTypeLo && tc <= gnssPosTypeHi:
+			return AltitudeGeometric, nil
+		default:
+			return 0, newError(ErrNotAvailable, "error retrieving altitude source")
+		}
+	default:
+		return 0, newError(ErrNotAvailable, "error retrieving altitude source")
+	}
+}
+
 var callChars = []byte(
 	"?ABCDEFGHIJKLMNOPQRSTUVWXYZ????? ???????????????0123456789??????")
 
@@ -212,6 +245,8 @@ func (m *Message) CPR() (*CPR, error) {
 		case tc >= surfacePosTypeLo && tc <= surfacePosTypeHi:
 			surface = true
 		case tc >= airPosTypeLo && tc <= airPosTypeHi:
+			surface = false
+		case tc >= gnssPosTypeLo && tc <= gnssPosTypeHi:
 			surface = false
 		default:
 			return nil, newError(ErrNotAvailable, "error retrieving position")
