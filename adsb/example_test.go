@@ -73,6 +73,31 @@ func ExampleMessage_SurfaceMovement() {
 	// track: 92.8125 degrees
 }
 
+// ExampleMessage_OperationalStatus decodes an airborne operational status
+// message, reading the ADS-B version, integrity/accuracy metrics, and
+// version-specific capability flags.
+func ExampleMessage_OperationalStatus() {
+	msg := exampleMessage("8D40621DF8322026005A7A000000")
+
+	os, err := msg.OperationalStatus()
+	if err != nil {
+		fmt.Println(err)
+
+		return
+	}
+
+	fmt.Printf("version %d, NACp %d, SIL %d\n", os.Version, os.NACp, os.SIL)
+
+	if os.Airborne != nil {
+		fmt.Printf("1090ES-IN %t, UAT-IN %t, ACAS %t\n",
+			os.Airborne.Has1090ESIn, os.Airborne.HasUATIn, os.Airborne.ACASOperational)
+	}
+
+	// Output:
+	// version 2, NACp 10, SIL 3
+	// 1090ES-IN true, UAT-IN true, ACAS true
+}
+
 // ExampleMessage_AltitudeSource shows a GNSS-height airborne position (type
 // codes 20-22). The altitude is decoded identically to barometric altitude
 // but reported as geometric.

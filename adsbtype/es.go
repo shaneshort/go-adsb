@@ -141,6 +141,30 @@ func (c AST) String() string {
 	return fmt.Sprintf("Unknown value %d", c)
 }
 
+// HRD is the horizontal reference direction subfield, indicating the
+// reference for track angle and heading fields.
+type HRD uint64
+
+// Horizontal Reference Direction values.
+const (
+	HRD0 HRD = 0 // True north
+	HRD1 HRD = 1 // Magnetic north
+)
+
+var mHRD = map[HRD]string{
+	HRD0: "True north",
+	HRD1: "Magnetic north",
+}
+
+// String representation of HRD.
+func (c HRD) String() string {
+	if str, ok := mHRD[c]; ok {
+		return str
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
 // AcCat is the extended squitter aircraft emitter category.
 type AcCat string
 
