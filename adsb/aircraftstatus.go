@@ -160,8 +160,36 @@ func octalSquawk(sqk []byte) int {
 	return int(sqk[0])*1000 + int(sqk[1])*100 + int(sqk[2])*10 + int(sqk[3])
 }
 
-// decodeACASRA decodes the subtype 2 TCAS resolution advisory broadcast per
-// ICAO Annex 10 Vol IV §4.3.8.4.2.2.1.
+// acasRAFormat is the downlink format of the long air-air surveillance reply
+// whose MV field carries the ACAS resolution advisory (register 30).
+const acasRAFormat = 16
+
+// ACASRA returns the decoded ACAS resolution advisory from the MV field of a
+// DF16 long air-air surveillance reply, interpreting it as transponder
+// register 30 (ICAO Annex 10 Vol IV §4.3.8.4.2.2.1). The MV field occupies the
+// same frame bits (33-88) as the extended squitter ME field, so the register
+// decode is shared with the TC28 subtype 2 broadcast.
+//
+// It returns an error wrapping ErrNotAvailable unless the message is a DF16
+// reply. The register identity is not verified; a DF16 reply to a GICB request
+// for another register decodes as a meaningless RA.
+func (m *Message) ACASRA() (*ACASRA, error) {
+	df, err := m.raw.DF()
+	if err != nil {
+		return nil, newError(err, "error retrieving ACAS RA")
+	}
+
+	if df != acasRAFormat {
+		return nil, newErrorf(ErrNotAvailable, "ACAS RA not available in format %d", df)
+	}
+
+	return decodeACASRA(m.raw), nil
+}
+
+// decodeACASRA decodes the TCAS resolution advisory (register 30) per ICAO
+// Annex 10 Vol IV §4.3.8.4.2.2.1. It reads the shared frame bits 41-88, so it
+// serves the TC28 subtype 2 broadcast, the DF16 MV field, and Comm-B register
+// 30 alike.
 func decodeACASRA(r *RawMessage) *ACASRA {
 	ra := &ACASRA{
 		ARA:                 asU16(r.esbits(9, 22)),
