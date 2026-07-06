@@ -141,6 +141,41 @@ func (c AST) String() string {
 	return fmt.Sprintf("Unknown value %d", c)
 }
 
+// EPS is the emergency/priority status subfield.
+type EPS uint64
+
+// Emergency/Priority Status values.
+const (
+	EPS0 EPS = 0 // No emergency
+	EPS1 EPS = 1 // General emergency
+	EPS2 EPS = 2 // Lifeguard / medical emergency
+	EPS3 EPS = 3 // Minimum fuel
+	EPS4 EPS = 4 // No communications
+	EPS5 EPS = 5 // Unlawful interference
+	EPS6 EPS = 6 // Downed aircraft
+	EPS7 EPS = 7 // Reserved
+)
+
+var mEPS = map[EPS]string{
+	EPS0: "No emergency",
+	EPS1: "General emergency",
+	EPS2: "Lifeguard / medical emergency",
+	EPS3: "Minimum fuel",
+	EPS4: "No communications",
+	EPS5: "Unlawful interference",
+	EPS6: "Downed aircraft",
+	EPS7: "Reserved",
+}
+
+// String representation of EPS.
+func (c EPS) String() string {
+	if str, ok := mEPS[c]; ok {
+		return str
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
 // HRD is the horizontal reference direction subfield, indicating the
 // reference for track angle and heading fields.
 type HRD uint64
