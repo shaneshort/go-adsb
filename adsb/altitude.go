@@ -22,7 +22,32 @@
 
 package adsb
 
-import "github.com/ccoveille/go-safecast/v2"
+import (
+	"fmt"
+
+	"github.com/ccoveille/go-safecast/v2"
+)
+
+// AltitudeSource identifies the reference frame of an altitude value.
+type AltitudeSource uint8
+
+// Altitude source values.
+const (
+	AltitudeBarometric AltitudeSource = iota // barometric pressure altitude
+	AltitudeGeometric                        // GNSS height above the ellipsoid
+)
+
+// String representation of AltitudeSource.
+func (s AltitudeSource) String() string {
+	switch s {
+	case AltitudeBarometric:
+		return "Barometric"
+	case AltitudeGeometric:
+		return "Geometric"
+	default:
+		return fmt.Sprintf("Unknown value %d", uint8(s))
+	}
+}
 
 // decodeAC decodes the Altitude Code field to an altitude in feet.
 func decodeAC(a uint64) (int64, error) {

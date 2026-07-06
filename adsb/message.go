@@ -122,6 +122,39 @@ func (m *Message) Alt() (int64, error) {
 	}
 }
 
+// AltitudeSource returns the reference frame of the altitude reported by
+// Alt: barometric for surveillance replies (DF 0/4/16/20) and airborne
+// position type codes 9-18, and geometric (GNSS height above the ellipsoid)
+// for type codes 20-22. It returns an error wrapping ErrNotAvailable when the
+// message carries no altitude.
+func (m *Message) AltitudeSource() (AltitudeSource, error) {
+	df, err := m.raw.DF()
+	if err != nil {
+		return 0, newError(err, "error retrieving altitude source")
+	}
+
+	switch df {
+	case 0, 4, 16, 20:
+		return AltitudeBarometric, nil
+	case 17, 18:
+		tc, err := m.raw.ESType()
+		if err != nil {
+			return 0, newError(err, "error retrieving altitude source")
+		}
+
+		switch {
+		case tc >= airPosTypeLo && tc <= airPosTypeHi:
+			return AltitudeBarometric, nil
+		case tc >= gnssPosTypeLo && tc <= gnssPosTypeHi:
+			return AltitudeGeometric, nil
+		default:
+			return 0, newError(ErrNotAvailable, "error retrieving altitude source")
+		}
+	default:
+		return 0, newError(ErrNotAvailable, "error retrieving altitude source")
+	}
+}
+
 var callChars = []byte(
 	"?ABCDEFGHIJKLMNOPQRSTUVWXYZ????? ???????????????0123456789??????")
 
@@ -199,6 +232,8 @@ func (m *Message) CPR() (*CPR, error) {
 		return nil, newError(err, "error retrieving position")
 	}
 
+	var surface bool
+
 	switch df {
 	case 17, 18:
 		tc, err := m.raw.ESType()
@@ -206,7 +241,14 @@ func (m *Message) CPR() (*CPR, error) {
 			return nil, newError(err, "error retrieving position")
 		}
 
-		if tc < 9 || tc > 18 {
+		switch {
+		case tc >= surfacePosTypeLo && tc <= surfacePosTypeHi:
+			surface = true
+		case tc >= airPosTypeLo && tc <= airPosTypeHi:
+			surface = false
+		case tc >= gnssPosTypeLo && tc <= gnssPosTypeHi:
+			surface = false
+		default:
 			return nil, newError(ErrNotAvailable, "error retrieving position")
 		}
 	default:
@@ -215,6 +257,7 @@ func (m *Message) CPR() (*CPR, error) {
 
 	c := new(CPR)
 	c.Nb = 17
+	c.Surface = surface
 	c.T = m.raw.Bit(53)
 	c.F = m.raw.Bit(54)
 	c.Lat = safecast.MustConvert[uint32](m.raw.Bits(55, 71))

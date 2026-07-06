@@ -59,7 +59,9 @@ func (r *RawMessage) ESAltitude() (uint64, error) {
 	}
 
 	switch tc {
-	case 0, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18:
+	// Type codes 9-18 carry barometric altitude and 20-22 carry GNSS height;
+	// DO-260B §2.2.3.2.3.4.3 encodes both identically in this subfield.
+	case 0, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 21, 22:
 		return r.esbits(9, 20), nil
 	default:
 		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",

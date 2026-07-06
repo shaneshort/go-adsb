@@ -29,6 +29,25 @@ import (
 	"kreklow.us/go/go-adsb/adsbtype"
 )
 
+// BDS 0,9 velocity subtypes. Subtypes 1 and 3 report at 1-knot resolution;
+// the supersonic subtypes 2 and 4 report at 4-knot resolution.
+const (
+	velGroundSubsonic   uint8 = 1 // ground speed and track
+	velGroundSupersonic uint8 = 2 // ground speed and track, supersonic
+	velAirSubsonic      uint8 = 3 // airspeed and heading
+	velAirSupersonic    uint8 = 4 // airspeed and heading, supersonic
+)
+
+// BDS 0,9 field scale factors and sentinels.
+const (
+	velSubsonicScale   = 1    // knots per count (subsonic subtypes)
+	velSupersonicScale = 4    // knots per count (supersonic subtypes)
+	verticalRateStep   = 64   // feet/minute per count
+	gnssBaroStep       = 25   // feet per count
+	headingSteps       = 1024 // heading counts per full 360-degree revolution
+	gnssBaroNoData     = 127  // all-ones 7-bit magnitude sentinel ("no data")
+)
+
 // Velocity is a decoded ADS-B airborne velocity message (extended squitter
 // type code 19, BDS 0,9). The Subtype selects which horizontal quantity is
 // reported: subtypes 1 and 2 report ground speed and track; subtypes 3 and 4
@@ -71,7 +90,7 @@ func (m *Message) Velocity() (*Velocity, error) {
 		return nil, newError(err, "error retrieving velocity")
 	}
 
-	if tc != 19 {
+	if adsbtype.TYPE(tc) != adsbtype.TYPE19 {
 		return nil, newErrorf(ErrNotAvailable,
 			"error retrieving velocity from type %d", tc)
 	}
@@ -86,9 +105,9 @@ func (m *Message) Velocity() (*Velocity, error) {
 	}
 
 	switch v.Subtype {
-	case 1, 2:
+	case velGroundSubsonic, velGroundSupersonic:
 		decodeGroundSpeed(r, v)
-	case 3, 4:
+	case velAirSubsonic, velAirSupersonic:
 		decodeAirspeed(r, v)
 	default:
 		return nil, newErrorf(ErrNotAvailable,
@@ -104,11 +123,11 @@ func (m *Message) Velocity() (*Velocity, error) {
 // velScale returns the velocity resolution in knots per count: 1 for the
 // subsonic subtypes (1, 3) and 4 for the supersonic subtypes (2, 4).
 func velScale(subtype uint8) float64 {
-	if subtype == 2 || subtype == 4 {
-		return 4
+	if subtype == velGroundSupersonic || subtype == velAirSupersonic {
+		return velSupersonicScale
 	}
 
-	return 1
+	return velSubsonicScale
 }
 
 // decodeGroundSpeed decodes the subtype 1/2 east-west and north-south
@@ -150,7 +169,7 @@ func decodeGroundSpeed(r *RawMessage, v *Velocity) {
 // the "no data" sentinel.
 func decodeAirspeed(r *RawMessage, v *Velocity) {
 	if r.esbits(14, 14) == 1 { // magnetic heading status
-		hdg := float64(r.esbits(15, 24)) / 1024 * 360
+		hdg := float64(r.esbits(15, 24)) / headingSteps * 360
 		v.Heading = &hdg
 	}
 
@@ -172,7 +191,7 @@ func decodeVerticalRate(r *RawMessage, v *Velocity) {
 		return
 	}
 
-	rate := safecast.MustConvert[int](mag-1) * 64
+	rate := safecast.MustConvert[int](mag-1) * verticalRateStep
 	if r.esbits(37, 37) == 1 { // 1 = down
 		rate = -rate
 	}
@@ -186,11 +205,11 @@ func decodeVerticalRate(r *RawMessage, v *Velocity) {
 // or 127 (all ones) is the "no data" sentinel.
 func decodeGNSSBaroDiff(r *RawMessage, v *Velocity) {
 	mag := r.esbits(50, 56)
-	if mag == 0 || mag == 127 {
+	if mag == 0 || mag == gnssBaroNoData {
 		return
 	}
 
-	diff := safecast.MustConvert[int](mag-1) * 25
+	diff := safecast.MustConvert[int](mag-1) * gnssBaroStep
 	if r.esbits(49, 49) == 1 { // 1 = GNSS below baro
 		diff = -diff
 	}

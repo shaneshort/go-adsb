@@ -141,8 +141,74 @@ func (c AST) String() string {
 	return fmt.Sprintf("Unknown value %d", c)
 }
 
+// EPS is the emergency/priority status subfield.
+type EPS uint64
+
+// Emergency/Priority Status values.
+const (
+	EPS0 EPS = 0 // No emergency
+	EPS1 EPS = 1 // General emergency
+	EPS2 EPS = 2 // Lifeguard / medical emergency
+	EPS3 EPS = 3 // Minimum fuel
+	EPS4 EPS = 4 // No communications
+	EPS5 EPS = 5 // Unlawful interference
+	EPS6 EPS = 6 // Downed aircraft
+	EPS7 EPS = 7 // Reserved
+)
+
+var mEPS = map[EPS]string{
+	EPS0: "No emergency",
+	EPS1: "General emergency",
+	EPS2: "Lifeguard / medical emergency",
+	EPS3: "Minimum fuel",
+	EPS4: "No communications",
+	EPS5: "Unlawful interference",
+	EPS6: "Downed aircraft",
+	EPS7: "Reserved",
+}
+
+// String representation of EPS.
+func (c EPS) String() string {
+	if str, ok := mEPS[c]; ok {
+		return str
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
+// HRD is the horizontal reference direction subfield, indicating the
+// reference for track angle and heading fields.
+type HRD uint64
+
+// Horizontal Reference Direction values.
+const (
+	HRD0 HRD = 0 // True north
+	HRD1 HRD = 1 // Magnetic north
+)
+
+var mHRD = map[HRD]string{
+	HRD0: "True north",
+	HRD1: "Magnetic north",
+}
+
+// String representation of HRD.
+func (c HRD) String() string {
+	if str, ok := mHRD[c]; ok {
+		return str
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
 // AcCat is the extended squitter aircraft emitter category.
 type AcCat string
+
+// Repeated AcCat descriptions. A category code of 0 always indicates no
+// category information regardless of the set, and several codes are reserved.
+const (
+	acCatNoInfo   = "No ADS-B emitter category information"
+	acCatReserved = "Reserved"
+)
 
 // Extended squitter aircraft emitter category values.
 const (
@@ -172,10 +238,19 @@ const (
 	C5 AcCat = "C5" // Line obstacle
 	C6 AcCat = "C6" // Reserved
 	C7 AcCat = "C7" // Reserved
+
+	D0 AcCat = "D0" // No ADS-B emitter category information (set D reserved)
+	D1 AcCat = "D1" // Reserved
+	D2 AcCat = "D2" // Reserved
+	D3 AcCat = "D3" // Reserved
+	D4 AcCat = "D4" // Reserved
+	D5 AcCat = "D5" // Reserved
+	D6 AcCat = "D6" // Reserved
+	D7 AcCat = "D7" // Reserved
 )
 
 var mAcCat = map[AcCat]string{
-	A0: "No ADS-B emitter category information",
+	A0: acCatNoInfo,
 	A1: "Light (< 15500 lbs)",
 	A2: "Small (15500 to 75000 lbs)",
 	A3: "Large (75000 to 300000 lbs)",
@@ -183,22 +258,30 @@ var mAcCat = map[AcCat]string{
 	A5: "Heavy (> 300000 lbs)",
 	A6: "High performance (> 5g acceleration and 400 kts)",
 	A7: "Rotorcraft",
-	B0: "No ADS-B emitter category information",
+	B0: acCatNoInfo,
 	B1: "Glider / sailplane",
 	B2: "Lighter-than-air",
 	B3: "Parachutist / skydiver",
 	B4: "Ultralight / hang-glider / paraglider",
-	B5: "Reserved",
+	B5: acCatReserved,
 	B6: "Unmanned aerial vehicle",
 	B7: "Space / trans-atmospheric vehicle",
-	C0: "No ADS-B emitter category information",
+	C0: acCatNoInfo,
 	C1: "Surface vehicle – emergency vehicle",
 	C2: "Surface vehicle – service vehicle",
 	C3: "Point obstacle (includes tethered balloons)",
 	C4: "Cluster obstacle",
 	C5: "Line obstacle",
-	C6: "Reserved",
-	C7: "Reserved",
+	C6: acCatReserved,
+	C7: acCatReserved,
+	D0: acCatNoInfo,
+	D1: acCatReserved,
+	D2: acCatReserved,
+	D3: acCatReserved,
+	D4: acCatReserved,
+	D5: acCatReserved,
+	D6: acCatReserved,
+	D7: acCatReserved,
 }
 
 // String representation of AcCat.

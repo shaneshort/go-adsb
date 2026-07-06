@@ -395,6 +395,31 @@ func testUnmarshalSignal(t *testing.T) {
 	}
 }
 
+// A type-4 (0x34) status frame is accepted by UnmarshalBinary; Type must
+// report its type byte rather than returning ErrNoData.
+func TestFrameType4(t *testing.T) {
+	msg, err := hex.DecodeString("1a3400000000000000")
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	f := new(beast.Frame)
+
+	err = f.UnmarshalBinary(msg)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	rt, err := f.Type()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	if rt != 0x34 {
+		t.Errorf("expected 0x34, received 0x%x", rt)
+	}
+}
+
 func testUnmarshalType(t *testing.T) {
 	msg, err := hex.DecodeString("1a321a1af933baf325c45da99adad95ff6")
 	if err != nil {
