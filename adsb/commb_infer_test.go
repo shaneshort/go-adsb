@@ -76,6 +76,11 @@ func TestInferBDSInvalid(t *testing.T) {
 		{"ModeStatusResidue", "A0000000BE800000000080000000", adsbtype.BDS40},
 		{"TrackRateResidue", "A00000008E5C01348204D7000000", adsbtype.BDS50},
 		{"VertRateResidue", "A0000000E009F5320107E0000000", adsbtype.BDS60},
+		{"TASOutOfRange", "A00000008E5C0134A20590000000", adsbtype.BDS50},
+		{"TrackRateOutOfRange", "A00000008E5C0134AC04D7000000", adsbtype.BDS50},
+		{"IASOutOfRange", "A0000000E00E41322107E0000000", adsbtype.BDS60},
+		{"VertRateOutOfRange", "A0000000E009F53227D7E0000000", adsbtype.BDS60},
+		{"FMSAltOutOfRange", "A000000000040280000000000000", adsbtype.BDS40},
 	}
 
 	for _, c := range cases {

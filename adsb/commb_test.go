@@ -62,6 +62,17 @@ func TestTrackAndTurnNegative(t *testing.T) {
 	wantFloat(t, "TrackAngleRate", tt.TrackAngleRate, -2.0, 0.001)
 }
 
+// A true track with the sign bit set and a zero magnitude sits exactly on the
+// 180-degree wrap boundary.
+func TestTrackAndTurnWrap(t *testing.T) {
+	tt, err := mustVelMsg(t, "A00000008E580134A204D7000000").TrackAndTurn()
+	if err != nil {
+		t.Fatalf("TrackAndTurn: %v", err)
+	}
+
+	wantFloat(t, "TrueTrack", tt.TrueTrack, 180, 0.001)
+}
+
 // BDS 6,0 with a negative barometric altitude rate (-2048 ft/min, sign set),
 // locking in the vertical-rate sign offset.
 func TestHeadingAndSpeedNegative(t *testing.T) {
