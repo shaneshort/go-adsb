@@ -54,9 +54,15 @@ func DecodeModeAC(data []byte) (*ModeAC, error) {
 		SPI: v&0x0080 != 0,
 	}
 
-	alt, err := decodeAC(modeACtoAC(v))
-	if err == nil {
-		ma.Altitude = &alt
+	// Mode C altitude is only meaningful for a genuine Mode C reply: the SPI
+	// pulse marks a Mode A identity reply, and the D1 pulse is Mode A only
+	// (no valid Mode C code uses it). Following readsb, altitude is left nil
+	// in either case.
+	if !ma.SPI && v&0x0001 == 0 {
+		alt, err := decodeAC(modeACtoAC(v))
+		if err == nil {
+			ma.Altitude = &alt
+		}
 	}
 
 	return ma, nil

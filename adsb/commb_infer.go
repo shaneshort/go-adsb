@@ -97,8 +97,19 @@ func validBDS40(r *RawMessage) bool {
 		return false
 	}
 
+	mode, source := r.mbbits(48, 48) == 1, r.mbbits(54, 54) == 1
+
 	mcp, fms, baro := r.mbbits(1, 1) == 1, r.mbbits(14, 14) == 1, r.mbbits(27, 27) == 1
-	if !mcp && !fms && !baro && r.mbbits(48, 48) != 1 && r.mbbits(54, 54) != 1 {
+	if !mcp && !fms && !baro && !mode && !source {
+		return false
+	}
+
+	// A clear status bit requires its value field to be zero.
+	if !mode && r.mbbits(49, 51) != 0 {
+		return false
+	}
+
+	if !source && r.mbbits(55, 56) != 0 {
 		return false
 	}
 
@@ -161,6 +172,9 @@ func validBDS50(r *RawMessage) bool {
 		if rate < -maxTrackRate || rate > maxTrackRate {
 			return false
 		}
+	} else if r.mbbits(36, 45) != 0 {
+		// Clear status requires the sign and value bits to be zero.
+		return false
 	}
 
 	return true
@@ -184,11 +198,19 @@ func validBDS60(r *RawMessage) bool {
 		return false
 	}
 
-	if baroValid && !vertRatePlausible(r, 36, 37, 45) {
+	if baroValid {
+		if !vertRatePlausible(r, 36, 37, 45) {
+			return false
+		}
+	} else if r.mbbits(36, 45) != 0 {
 		return false
 	}
 
-	return !inertialValid || vertRatePlausible(r, 47, 48, 56)
+	if inertialValid {
+		return vertRatePlausible(r, 47, 48, 56)
+	}
+
+	return r.mbbits(47, 56) == 0
 }
 
 // vertRatePlausible checks a signed vertical-rate subfield against the plausible

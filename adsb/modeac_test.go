@@ -64,6 +64,44 @@ func TestDecodeModeACSquawk(t *testing.T) {
 	}
 }
 
+// The D1 pulse is Mode A only; a code that sets it has no valid Mode C
+// altitude even though its other pulses match an altitude code.
+func TestDecodeModeACD1Set(t *testing.T) {
+	ma, err := adsb.DecodeModeAC([]byte{0x07, 0x11})
+	if err != nil {
+		t.Fatalf("DecodeModeAC: %v", err)
+	}
+
+	if !bytes.Equal(ma.Squawk, []byte{0, 7, 1, 1}) {
+		t.Errorf("Squawk = %v, want [0 7 1 1]", ma.Squawk)
+	}
+
+	if ma.Altitude != nil {
+		t.Errorf("Altitude = %v, want nil (D1 set)", *ma.Altitude)
+	}
+}
+
+// SPI marks a Mode A identity reply, so no Mode C altitude is reported even
+// when the remaining pulses match an altitude code.
+func TestDecodeModeACSPINoAltitude(t *testing.T) {
+	ma, err := adsb.DecodeModeAC([]byte{0x07, 0x90})
+	if err != nil {
+		t.Fatalf("DecodeModeAC: %v", err)
+	}
+
+	if !ma.SPI {
+		t.Error("SPI = false, want true")
+	}
+
+	if !bytes.Equal(ma.Squawk, []byte{0, 7, 1, 0}) {
+		t.Errorf("Squawk = %v, want [0 7 1 0]", ma.Squawk)
+	}
+
+	if ma.Altitude != nil {
+		t.Errorf("Altitude = %v, want nil (SPI set)", *ma.Altitude)
+	}
+}
+
 // The SPI pulse (0x0080) is reported.
 func TestDecodeModeACSPI(t *testing.T) {
 	ma, err := adsb.DecodeModeAC([]byte{0x00, 0x80})

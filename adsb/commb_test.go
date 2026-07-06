@@ -48,6 +48,34 @@ func TestTrackAndTurn(t *testing.T) {
 	wantFloat(t, "TrueAirspeed", tt.TrueAirspeed, 430, 0.001)
 }
 
+// BDS 5,0 with negative-signed fields: roll -20.04 deg (sign set), track
+// angle rate -2 deg/s (sign set), locking in the roll and track-rate sign
+// offsets.
+func TestTrackAndTurnNegative(t *testing.T) {
+	tt, err := mustVelMsg(t, "A0000000F1D40125BE0496000000").TrackAndTurn()
+	if err != nil {
+		t.Fatalf("TrackAndTurn: %v", err)
+	}
+
+	wantFloat(t, "RollAngle", tt.RollAngle, -20.039, 0.001)
+	wantFloat(t, "TrueTrack", tt.TrueTrack, 90, 0.001)
+	wantFloat(t, "TrackAngleRate", tt.TrackAngleRate, -2.0, 0.001)
+}
+
+// BDS 6,0 with a negative barometric altitude rate (-2048 ft/min, sign set),
+// locking in the vertical-rate sign offset.
+func TestHeadingAndSpeedNegative(t *testing.T) {
+	hs, err := mustVelMsg(t, "A00000009009911F7E0000000000").HeadingAndSpeed()
+	if err != nil {
+		t.Fatalf("HeadingAndSpeed: %v", err)
+	}
+
+	wantFloat(t, "MagneticHeading", hs.MagneticHeading, 45, 0.001)
+	wantFloat(t, "Mach", hs.Mach, 0.5, 0.001)
+	wantInt(t, "BarometricAltitudeRate", hs.BarometricAltitudeRate, -2048)
+	wantNil(t, "InertialVerticalVelocity", hs.InertialVerticalVelocity == nil)
+}
+
 // BDS 6,0 heading and speed report: magnetic heading 270 deg, IAS 250 kt,
 // Mach 0.8, barometric altitude rate +1024 ft/min, inertial vertical
 // velocity -1024 ft/min.

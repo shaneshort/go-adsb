@@ -73,6 +73,9 @@ func TestInferBDSInvalid(t *testing.T) {
 		{"MachOutOfRange", "A0000000E009F53EA107E0000000", adsbtype.BDS60},
 		{"ReservedBitsSet", "A0000000BE800000010000000000", adsbtype.BDS40},
 		{"AltStatusMismatch", "A00000003E800030A40000000000", adsbtype.BDS40},
+		{"ModeStatusResidue", "A0000000BE800000000080000000", adsbtype.BDS40},
+		{"TrackRateResidue", "A00000008E5C01348204D7000000", adsbtype.BDS50},
+		{"VertRateResidue", "A0000000E009F5320107E0000000", adsbtype.BDS60},
 	}
 
 	for _, c := range cases {
