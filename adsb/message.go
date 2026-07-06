@@ -199,6 +199,8 @@ func (m *Message) CPR() (*CPR, error) {
 		return nil, newError(err, "error retrieving position")
 	}
 
+	var surface bool
+
 	switch df {
 	case 17, 18:
 		tc, err := m.raw.ESType()
@@ -206,7 +208,12 @@ func (m *Message) CPR() (*CPR, error) {
 			return nil, newError(err, "error retrieving position")
 		}
 
-		if tc < 9 || tc > 18 {
+		switch {
+		case tc >= surfacePosTypeLo && tc <= surfacePosTypeHi:
+			surface = true
+		case tc >= airPosTypeLo && tc <= airPosTypeHi:
+			surface = false
+		default:
 			return nil, newError(ErrNotAvailable, "error retrieving position")
 		}
 	default:
@@ -215,6 +222,7 @@ func (m *Message) CPR() (*CPR, error) {
 
 	c := new(CPR)
 	c.Nb = 17
+	c.Surface = surface
 	c.T = m.raw.Bit(53)
 	c.F = m.raw.Bit(54)
 	c.Lat = safecast.MustConvert[uint32](m.raw.Bits(55, 71))

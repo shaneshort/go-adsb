@@ -26,18 +26,40 @@ import (
 	"math"
 )
 
+// Extended squitter position type codes and CPR coordinate ranges.
+const (
+	surfacePosTypeLo = 5 // TC 5-8: surface position (BDS 0,6)
+	surfacePosTypeHi = 8
+	airPosTypeLo     = 9 // TC 9-18: airborne barometric position (BDS 0,5)
+	airPosTypeHi     = 18
+
+	// CPR coordinate range in degrees: airborne spans the globe, surface a
+	// quarter of it.
+	airborneAngleRange = 360.0
+	surfaceAngleRange  = 90.0
+
+	// cprMax is the CPR field range, 2^17, used to normalise the encoded
+	// latitude and longitude to a fraction.
+	cprMax = 131072
+)
+
 // CPR is an extended squitter compact position report.
 type CPR struct {
-	Nb  uint8  // number of encoded bits (17, 19, 14 or 12)
-	T   uint8  // time bit
-	F   uint8  // format bit
-	Lat uint32 // encoded latitude
-	Lon uint32 // encoded longitude
+	Nb      uint8  // number of encoded bits (17, 19, 14 or 12)
+	T       uint8  // time bit
+	F       uint8  // format bit
+	Lat     uint32 // encoded latitude
+	Lon     uint32 // encoded longitude
+	Surface bool   // true for a surface position (90-degree scaling)
 }
 
 // DecodeLocal decodes an encoded position to a global latitude and
 // longitude by comparing the position to a known reference point.
 // Argument and return value is in the format [latitude, longitude].
+//
+// This is the decoding path for surface positions (CPR.Surface): a single
+// surface message is decoded against a nearby reference using 90-degree
+// scaling. The reference must be within roughly 45 NM of the true position.
 func (c *CPR) DecodeLocal(rp []float64) ([]float64, error) {
 	switch {
 	case len(rp) != 2:
@@ -50,10 +72,15 @@ func (c *CPR) DecodeLocal(rp []float64) ([]float64, error) {
 
 	latr := rp[0]
 	lonr := rp[1]
-	latc := float64(c.Lat) / 131072
-	lonc := float64(c.Lon) / 131072
+	latc := float64(c.Lat) / cprMax
+	lonc := float64(c.Lon) / cprMax
 
-	dlat := 360.0 / float64(60-c.F)
+	angRange := airborneAngleRange
+	if c.Surface {
+		angRange = surfaceAngleRange
+	}
+
+	dlat := angRange / float64(60-c.F)
 
 	j := math.Floor(latr/dlat) +
 		math.Floor((mod(latr, dlat)/dlat)-latc+0.5)
@@ -67,9 +94,9 @@ func (c *CPR) DecodeLocal(rp []float64) ([]float64, error) {
 	nl := float64(cprNL(coord[0]) - c.F)
 
 	if nl == 0 {
-		dlon = 360.0
+		dlon = angRange
 	} else {
-		dlon = 360.0 / nl
+		dlon = angRange / nl
 	}
 
 	m := math.Floor(lonr/dlon) +
@@ -85,10 +112,17 @@ func (c *CPR) DecodeLocal(rp []float64) ([]float64, error) {
 // The two messages must have different formats (CPR.F) and must have
 // a time difference of less than 10 seconds (3 NM distance). The
 // return value is in the format [latitude, longitude].
+//
+// Surface positions (CPR.Surface) are rejected: their 90-degree encoding is
+// ambiguous across four zones and cannot be resolved without a reference
+// point. Decode surface positions with DecodeLocal against a known reference
+// instead.
 func DecodeGlobalPosition(c1 *CPR, c2 *CPR) ([]float64, error) {
 	switch {
 	case c1 == nil || c2 == nil:
 		return nil, newError(nil, "incomplete arguments")
+	case c1.Surface || c2.Surface:
+		return nil, newError(nil, "global decode not supported for surface positions")
 	case c1.Nb != c2.Nb:
 		return nil, newError(nil, "bit encoding must be equal")
 	case c1.F == c2.F:
@@ -101,16 +135,16 @@ func DecodeGlobalPosition(c1 *CPR, c2 *CPR) ([]float64, error) {
 
 	if c1.F == 0 {
 		t0 = false
-		lat0 = float64(c1.Lat) / 131072 // 2**17 = 131072
-		lon0 = float64(c1.Lon) / 131072
-		lat1 = float64(c2.Lat) / 131072
-		lon1 = float64(c2.Lon) / 131072
+		lat0 = float64(c1.Lat) / cprMax
+		lon0 = float64(c1.Lon) / cprMax
+		lat1 = float64(c2.Lat) / cprMax
+		lon1 = float64(c2.Lon) / cprMax
 	} else {
 		t0 = true
-		lat0 = float64(c2.Lat) / 131072
-		lon0 = float64(c2.Lon) / 131072
-		lat1 = float64(c1.Lat) / 131072
-		lon1 = float64(c1.Lon) / 131072
+		lat0 = float64(c2.Lat) / cprMax
+		lon0 = float64(c2.Lon) / cprMax
+		lat1 = float64(c1.Lat) / cprMax
+		lon1 = float64(c1.Lon) / cprMax
 	}
 
 	dlat0 := 360.0 / 60.0
@@ -135,6 +169,114 @@ func DecodeGlobalPosition(c1 *CPR, c2 *CPR) ([]float64, error) {
 	coord := calcGlobal(t0, lon0, lon1, rlat0, rlat1)
 
 	return coord, nil
+}
+
+// DecodeGlobalPositionRef decodes a surface even/odd CPR pair to a latitude
+// and longitude, using a nearby reference point to resolve the ambiguous
+// surface zones. Surface CPR spans only a 90-degree latitude zone and four
+// longitude quadrants, so a reference (typically the receiver location) is
+// required to choose the correct one.
+//
+// Both arguments must be surface CPRs (CPR.Surface) with different formats
+// (CPR.F). The reference rp is [latitude, longitude] in degrees. As with
+// DecodeGlobalPosition, the returned [latitude, longitude] is the position of
+// the second argument c2 — the more recent frame. For airborne positions use
+// DecodeGlobalPosition, which needs no reference.
+func DecodeGlobalPositionRef(c1 *CPR, c2 *CPR, rp []float64) ([]float64, error) {
+	switch {
+	case c1 == nil || c2 == nil:
+		return nil, newError(nil, "incomplete arguments")
+	case !c1.Surface || !c2.Surface:
+		return nil, newError(nil, "reference decode is only supported for surface positions")
+	case c1.Nb != c2.Nb:
+		return nil, newError(nil, "bit encoding must be equal")
+	case c1.F == c2.F:
+		return nil, newError(nil, "format must be different")
+	case len(rp) != 2:
+		return nil, newError(nil, "must provide [lat, lon] as reference")
+	case rp[0] > 90 || rp[0] < -90:
+		return nil, newError(nil, "reference latitude out of range (-90 to 90)")
+	case rp[1] > 180 || rp[1] < -180:
+		return nil, newError(nil, "reference longitude out of range (-180 to 180)")
+	}
+
+	// c2 is the message being located (DecodeGlobalPosition returns the
+	// second argument's position); identify the even and odd frames.
+	even, odd := c1, c2
+	if c1.F != 0 {
+		even, odd = c2, c1
+	}
+
+	evenNewer := c2.F == 0
+
+	latEven, latOdd, ok := surfaceLatitude(even, odd, rp[0])
+	if !ok {
+		return nil, newError(nil, "positions cross latitude boundary")
+	}
+
+	lat := latEven
+	if !evenNewer {
+		lat = latOdd
+	}
+
+	lon := surfaceLongitude(even, odd, evenNewer, lat, rp[1])
+
+	return []float64{lat, lon}, nil
+}
+
+// surfaceLatitude resolves the even and odd surface-CPR latitude candidates
+// against a reference. A negative reference selects the southern hemisphere.
+// ok is false if the two candidates fall in different longitude zones.
+func surfaceLatitude(even, odd *CPR, latRef float64) (latEven, latOdd float64, ok bool) {
+	cprLatEven := float64(even.Lat) / cprMax
+	cprLatOdd := float64(odd.Lat) / cprMax
+
+	j := math.Floor((59 * cprLatEven) - (60 * cprLatOdd) + 0.5)
+
+	latEven = (surfaceAngleRange / 60) * (mod(j, 60) + cprLatEven)
+	latOdd = (surfaceAngleRange / 59) * (mod(j, 59) + cprLatOdd)
+
+	if latRef < 0 {
+		latEven -= surfaceAngleRange
+		latOdd -= surfaceAngleRange
+	}
+
+	return latEven, latOdd, cprNL(latEven) == cprNL(latOdd)
+}
+
+// surfaceLongitude resolves the surface-CPR longitude for the newer frame,
+// choosing the 90-degree quadrant nearest the reference longitude.
+func surfaceLongitude(even, odd *CPR, evenNewer bool, lat, lonRef float64) float64 {
+	cprLonEven := float64(even.Lon) / cprMax
+	cprLonOdd := float64(odd.Lon) / cprMax
+
+	nl := float64(cprNL(lat))
+	m := math.Floor((cprLonEven * (nl - 1)) - (cprLonOdd * nl) + 0.5)
+
+	ni := math.Max(nl, 1)
+	cprLon := cprLonEven
+
+	if !evenNewer {
+		ni = math.Max(nl-1, 1)
+		cprLon = cprLonOdd
+	}
+
+	lonBase := (surfaceAngleRange / ni) * (mod(m, ni) + cprLon)
+
+	lon := lonBase
+	best := math.Inf(1)
+
+	for i := range 4 {
+		cand := mod(lonBase+(float64(i)*surfaceAngleRange)+180, 360) - 180
+		// Wrapped angular distance so a reference and candidate on opposite
+		// sides of the antimeridian are correctly treated as close.
+		if d := math.Abs(mod((lonRef-cand)+180, 360) - 180); d < best {
+			best = d
+			lon = cand
+		}
+	}
+
+	return lon
 }
 
 func calcGlobal(t0 bool, lon0, lon1, rlat0, rlat1 float64) []float64 {
