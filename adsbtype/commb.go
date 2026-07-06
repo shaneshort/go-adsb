@@ -101,6 +101,8 @@ const (
 
 	BDS65 BDS = 0x65 // Extended squitter aircraft operational status
 
+	BDSE1 BDS = 0xE1 // Reserved for Mode S BITE (built-in test equipment)
+	BDSE2 BDS = 0xE2 // Reserved for Mode S BITE (built-in test equipment)
 	BDSE3 BDS = 0xE3 // Transponder type / part number
 	BDSE4 BDS = 0xE4 // Transponder software revision number
 	BDSE5 BDS = 0xE5 // ACAS unit part number
@@ -150,6 +152,8 @@ var mBDS = map[BDS]string{
 	BDS60: "Heading and speed report",
 	BDS61: "Extended squitter emergency / priority status",
 	BDS65: "Extended squitter aircraft operational status",
+	BDSE1: "Reserved for Mode S BITE (built-in test equipment)",
+	BDSE2: "Reserved for Mode S BITE (built-in test equipment)",
 	BDSE3: "Transponder type / part number",
 	BDSE4: "Transponder software revision number",
 	BDSE5: "ACAS unit part number",

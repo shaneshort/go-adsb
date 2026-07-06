@@ -44,6 +44,8 @@ func TestConst(t *testing.T) {
 
 		adsbtype.ATS0:  "adsbtype.ATS: Barometric altitude",
 		adsbtype.BDS02: "adsbtype.BDS: Linked Comm-B, segment 2",
+		adsbtype.BDSE1: "adsbtype.BDS: Reserved for Mode S BITE (built-in test equipment)",
+		adsbtype.BDSE2: "adsbtype.BDS: Reserved for Mode S BITE (built-in test equipment)",
 		adsbtype.SSS0:  "adsbtype.SSS: No condition information",
 		adsbtype.TRS0:  "adsbtype.TRS: No capability",
 		adsbtype.D0:    "adsbtype.AcCat: No ADS-B emitter category information",

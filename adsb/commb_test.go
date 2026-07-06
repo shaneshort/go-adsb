@@ -24,9 +24,11 @@ package adsb_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"kreklow.us/go/go-adsb/adsb"
+	"kreklow.us/go/go-adsb/adsbtype"
 )
 
 // Comm-B vectors were constructed from explicit subfield values using the
@@ -196,5 +198,96 @@ func TestCommBRejectNonReply(t *testing.T) {
 	_, err = msg.SelectedVerticalIntention()
 	if !errors.Is(err, adsb.ErrNotAvailable) {
 		t.Errorf("SelectedVerticalIntention err = %v, want ErrNotAvailable", err)
+	}
+
+	_, err = msg.DataLinkCapability()
+	if !errors.Is(err, adsb.ErrNotAvailable) {
+		t.Errorf("DataLinkCapability err = %v, want ErrNotAvailable", err)
+	}
+
+	_, err = msg.CommonUsageGICB()
+	if !errors.Is(err, adsb.ErrNotAvailable) {
+		t.Errorf("CommonUsageGICB err = %v, want ErrNotAvailable", err)
+	}
+}
+
+// BDS 1,7 common usage GICB capability report: registers 0,5, 0,9, 2,0, 4,0,
+// 5,0, 6,0 and F,1 marked available. Vector built from the MB bit assignments
+// of ICAO Doc 9871 Table A-2-23.
+func TestCommonUsageGICB(t *testing.T) {
+	got, err := mustVelMsg(t, "A00000008A810108000000000000").CommonUsageGICB()
+	if err != nil {
+		t.Fatalf("CommonUsageGICB: %v", err)
+	}
+
+	want := []adsbtype.BDS{
+		adsbtype.BDS05, adsbtype.BDS09, adsbtype.BDS20,
+		adsbtype.BDS40, adsbtype.BDS50, adsbtype.BDS60, adsbtype.BDSF1,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("CommonUsageGICB = %v, want %v", got, want)
+	}
+}
+
+// BDS 1,7 bits 27 and 28 map to the E,1 and E,2 built-in test equipment
+// registers (ICAO Doc 9871 Table A-2-23).
+func TestCommonUsageGICBBITE(t *testing.T) {
+	got, err := mustVelMsg(t, "A000000000000030000000000000").CommonUsageGICB()
+	if err != nil {
+		t.Fatalf("CommonUsageGICB: %v", err)
+	}
+
+	want := []adsbtype.BDS{adsbtype.BDSE1, adsbtype.BDSE2}
+	if !slices.Equal(got, want) {
+		t.Errorf("CommonUsageGICB = %v, want %v", got, want)
+	}
+}
+
+// BDS 1,0 data link capability report: overlay command and ACAS capable,
+// Mode S subnetwork version 4, enhanced protocol and specific services,
+// uplink ELM 3, downlink ELM 5, aircraft ID and squitter capable, no SI code,
+// common-usage GICB present, ACAS additional capability 10, DTE sub-address
+// status 0xACE1. Vector built from the MB bit ranges of ICAO Annex 10 Vol IV
+// Table 3-6.
+func TestDataLinkCapability(t *testing.T) {
+	dlc, err := mustVelMsg(t, "A0000000100309B5DAACE1000000").DataLinkCapability()
+	if err != nil {
+		t.Fatalf("DataLinkCapability: %v", err)
+	}
+
+	wantBool(t, "ContinuationFlag", dlc.ContinuationFlag, false)
+	wantBool(t, "OverlayCommandCapability", dlc.OverlayCommandCapability, true)
+	wantBool(t, "ACASCapability", dlc.ACASCapability, true)
+	wantU8(t, "ModeSSubnetworkVersion", dlc.ModeSSubnetworkVersion, 4)
+	wantBool(t, "TransponderEnhancedProtocol", dlc.TransponderEnhancedProtocol, true)
+	wantBool(t, "SpecificServicesCapability", dlc.SpecificServicesCapability, true)
+	wantU8(t, "UplinkELMCapability", dlc.UplinkELMCapability, 3)
+	wantU8(t, "DownlinkELMCapability", dlc.DownlinkELMCapability, 5)
+	wantBool(t, "AircraftIdentificationCapable", dlc.AircraftIdentificationCapable, true)
+	wantBool(t, "SquitterCapability", dlc.SquitterCapability, true)
+	wantBool(t, "SurveillanceIdentifierCode", dlc.SurveillanceIdentifierCode, false)
+	wantBool(t, "CommonUsageGICBCapability", dlc.CommonUsageGICBCapability, true)
+	wantU8(t, "ACASAdditionalCapability", dlc.ACASAdditionalCapability, 10)
+
+	if dlc.DTESubaddressStatus != 0xACE1 {
+		t.Errorf("DTESubaddressStatus = %#04x, want 0xACE1", dlc.DTESubaddressStatus)
+	}
+}
+
+// wantBool asserts a bool field equals want.
+func wantBool(t *testing.T, name string, got, want bool) {
+	t.Helper()
+
+	if got != want {
+		t.Errorf("%s = %t, want %t", name, got, want)
+	}
+}
+
+// wantU8 asserts a uint8 field equals want.
+func wantU8(t *testing.T, name string, got, want uint8) {
+	t.Helper()
+
+	if got != want {
+		t.Errorf("%s = %d, want %d", name, got, want)
 	}
 }

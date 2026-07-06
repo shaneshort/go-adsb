@@ -40,6 +40,8 @@ func TestInferBDS(t *testing.T) {
 		hex  string
 		want adsbtype.BDS
 	}{
+		{"BDS10", "A0000000100309B5DAACE1000000", adsbtype.BDS10},
+		{"BDS17", "A00000008A810108000000000000", adsbtype.BDS17},
 		{"BDS20", "A0000000200420C4820820000000", adsbtype.BDS20},
 		{"BDS40", "A0000000BE85F430A40185000000", adsbtype.BDS40},
 		{"BDS50", "A00000008E5C0134A204D7000000", adsbtype.BDS50},
@@ -81,6 +83,8 @@ func TestInferBDSInvalid(t *testing.T) {
 		{"IASOutOfRange", "A0000000E00E41322107E0000000", adsbtype.BDS60},
 		{"VertRateOutOfRange", "A0000000E009F53227D7E0000000", adsbtype.BDS60},
 		{"FMSAltOutOfRange", "A000000000040280000000000000", adsbtype.BDS40},
+		{"BDS10ReservedBitSet", "A000000010400000000000000000", adsbtype.BDS10},
+		{"BDS17ReservedBitSet", "A000000080000004000000000000", adsbtype.BDS17},
 	}
 
 	for _, c := range cases {
