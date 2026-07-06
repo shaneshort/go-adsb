@@ -203,7 +203,64 @@ func TestRawBits(t *testing.T) {
 	t.Run("Large", testRawBitsLarge)
 	t.Run("Reverse", testRawBitsRev)
 	t.Run("Big", testRawBitsBig)
+	t.Run("Max64", testRawBitsMax64)
+	t.Run("Over64", testRawBitsOver64)
 	t.Run("Good", testRawBitsGood)
+}
+
+// A request for exactly 64 bits is the maximum a uint64 holds and must not
+// panic.
+func testRawBitsMax64(t *testing.T) {
+	b, err := hex.DecodeString("88aabbccddeeff00aabbccddeeff")
+	if err != nil {
+		t.Fatal("received unexpected error:", err)
+	}
+
+	r := new(adsb.RawMessage)
+
+	err = r.UnmarshalBinary(b)
+	if err != nil {
+		t.Fatal("received unexpected error:", err)
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			t.Error("unexpected panic:", p)
+		}
+	}()
+
+	bits := r.Bits(1, 64)
+	if bits != 0x88AABBCCDDEEFF00 {
+		t.Errorf("received unexpected value: %016X", bits)
+	}
+}
+
+// A request for 65 bits exceeds the 64-bit result and must panic rather than
+// silently truncate.
+func testRawBitsOver64(t *testing.T) {
+	b, err := hex.DecodeString("88aabbccddeeff00aabbccddeeff")
+	if err != nil {
+		t.Fatal("received unexpected error:", err)
+	}
+
+	r := new(adsb.RawMessage)
+
+	err = r.UnmarshalBinary(b)
+	if err != nil {
+		t.Fatal("received unexpected error:", err)
+	}
+
+	defer func() {
+		p := recover()
+		if p != "maximum of 64 bits exceeded" {
+			t.Error("unexpected panic:", p)
+		}
+	}()
+
+	bits := r.Bits(1, 65)
+	if bits != 0 {
+		t.Error("received unexpected value:", bits)
+	}
 }
 
 func testRawBitsNeg(t *testing.T) {

@@ -164,7 +164,7 @@ func (f *Frame) Timestamp() (time.Duration, error) {
 
 // Type returns the frame type byte.
 func (f *Frame) Type() (byte, error) {
-	if f.data.Len() < 10 {
+	if f.data.Len() < 2 {
 		return 0, ErrNoData
 	}
 

@@ -39,6 +39,8 @@ func TestAircraftStatus(t *testing.T) {
 	t.Run("ModeADisabled", testAircraftStatusModeADisabled)
 	t.Run("ACASRA", testAircraftStatusACASRA)
 	t.Run("ACASThreatPosition", testAircraftStatusACASThreatPosition)
+	t.Run("ACASNoThreatIdentity", testAircraftStatusACASNoIdentity)
+	t.Run("ACASThreatFieldsAbsent", testAircraftStatusACASThreatAbsent)
 	t.Run("RejectNonStatus", testAircraftStatusRejectType)
 	t.Run("RejectReservedSubtype", testAircraftStatusRejectSubtype)
 }
@@ -145,6 +147,54 @@ func testAircraftStatusACASThreatPosition(t *testing.T) {
 
 	wantFloat(t, "ThreatRange", ra.ThreatRange, 5.0, 0.001)
 	wantFloat(t, "ThreatBearing", ra.ThreatBearing, 93, 0.001)
+}
+
+// A threat type indicator of 0 means no threat identity data; the threat
+// fields stay zero/nil while the RA itself remains valid.
+func testAircraftStatusACASNoIdentity(t *testing.T) {
+	as, err := mustVelMsg(t, "8D40621DE2800000000000000000").AircraftStatus()
+	if err != nil {
+		t.Fatalf("AircraftStatus: %v", err)
+	}
+
+	ra := as.ACASRA
+	if ra == nil {
+		t.Fatal("ACASRA: expected non-nil")
+	}
+
+	assertEq(t, "ThreatTypeIndicator", ra.ThreatTypeIndicator, 0)
+
+	if ra.ThreatICAO != 0 {
+		t.Errorf("ThreatICAO = %06X, want 0", ra.ThreatICAO)
+	}
+
+	if ra.ThreatAltitude != nil || ra.ThreatRange != nil || ra.ThreatBearing != nil {
+		t.Error("threat position fields should be nil when TTI is 0")
+	}
+}
+
+// With threat type indicator 2 but zeroed identity data, the altitude (invalid
+// Mode C), range (code 0) and bearing (code 0) all decode to nil.
+func testAircraftStatusACASThreatAbsent(t *testing.T) {
+	as, err := mustVelMsg(t, "8D40621DE2800008000000000000").AircraftStatus()
+	if err != nil {
+		t.Fatalf("AircraftStatus: %v", err)
+	}
+
+	ra := as.ACASRA
+	if ra == nil {
+		t.Fatal("ACASRA: expected non-nil")
+	}
+
+	assertEq(t, "ThreatTypeIndicator", ra.ThreatTypeIndicator, 2)
+
+	if ra.ThreatAltitude != nil {
+		t.Errorf("ThreatAltitude = %v, want nil", *ra.ThreatAltitude)
+	}
+
+	if ra.ThreatRange != nil || ra.ThreatBearing != nil {
+		t.Error("ThreatRange/ThreatBearing should be nil for code 0")
+	}
 }
 
 func testAircraftStatusRejectType(t *testing.T) {

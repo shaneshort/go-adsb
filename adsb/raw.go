@@ -452,7 +452,7 @@ func (r *RawMessage) Bits(n int, z int) (bits uint64) {
 		panic("upper bound must be within message length")
 	case n > z:
 		panic("upper bound must be greater than lower bound")
-	case (z - n) > 64:
+	case (z - n) >= 64:
 		panic("maximum of 64 bits exceeded")
 	}
 

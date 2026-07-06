@@ -42,6 +42,7 @@ func TestOperationalStatus(t *testing.T) {
 	t.Run("V0Airborne", testOpStatusV0Airborne)
 	t.Run("V2Surface", testOpStatusV2Surface)
 	t.Run("V1Surface", testOpStatusV1Surface)
+	t.Run("OperationalModeFormat", testOpStatusOMFormat)
 	t.Run("RejectNonOpStatus", testOpStatusReject)
 	t.Run("RejectReservedSubtype", testOpStatusReservedSubtype)
 	t.Run("RejectUnsupportedVersion", testOpStatusUnsupportedVersion)
@@ -191,6 +192,25 @@ func testOpStatusV1Surface(t *testing.T) {
 	assertTrue(t, "B2Low", s.B2Low)
 	assertEq(t, "LengthWidthCode", s.LengthWidthCode, 5)
 	assertTrue(t, "IdentActive", s.IdentActive)
+}
+
+// A nonzero operational-mode format code (ME 25-26) selects an undefined OM
+// layout, so the operational-mode subfields are left unset rather than decoded
+// from the wrong positions.
+func testOpStatusOMFormat(t *testing.T) {
+	os, err := mustVelMsg(t, "8D40621DF823206600593A000000").OperationalStatus()
+	if err != nil {
+		t.Fatalf("OperationalStatus: %v", err)
+	}
+
+	a := os.Airborne
+	if a == nil {
+		t.Fatal("Airborne: expected non-nil")
+	}
+
+	if a.TCASRAActive || a.IdentActive || a.SingleAntenna || a.SDA != 0 {
+		t.Error("operational-mode fields should be unset when the format code is nonzero")
+	}
 }
 
 func testOpStatusReject(t *testing.T) {

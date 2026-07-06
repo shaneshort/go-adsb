@@ -68,7 +68,7 @@ func (c *CPR) DecodeLocal(rp []float64) ([]float64, error) {
 		return nil, newError(nil, "must provide [lat, lon] as argument")
 	case rp[0] > 90 || rp[0] < -90:
 		return nil, newError(nil, "latitude out of range (-90 to 90)")
-	case rp[1] > 190 || rp[1] < -180:
+	case rp[1] > 180 || rp[1] < -180:
 		return nil, newError(nil, "longitude out of range (-180 to 180)")
 	}
 

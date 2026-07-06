@@ -361,6 +361,25 @@ type testCase struct {
 }
 
 // TestDecode runs the test cases for message decoding.
+// DecodeLocal rejects reference points outside the valid latitude/longitude
+// range, matching DecodeGlobalPositionRef.
+func TestDecodeLocalRefRange(t *testing.T) {
+	c := &adsb.CPR{Nb: 17, Lat: 1, Lon: 1}
+
+	for _, rp := range [][]float64{
+		{0, 181},  // longitude too high
+		{0, -181}, // longitude too low
+		{91, 0},   // latitude too high
+		{-91, 0},  // latitude too low
+		{0},       // wrong length
+	} {
+		_, err := c.DecodeLocal(rp)
+		if err == nil {
+			t.Errorf("DecodeLocal(%v): expected error", rp)
+		}
+	}
+}
+
 func TestDecode(t *testing.T) {
 	t.Run("DF0", testDF0)
 	t.Run("DF4", testDF4A)

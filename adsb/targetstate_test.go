@@ -35,6 +35,7 @@ import (
 // mode flags).
 func TestTargetState(t *testing.T) {
 	t.Run("Populated", testTargetStatePopulated)
+	t.Run("ModeInvalid", testTargetStateModeInvalid)
 	t.Run("NoData", testTargetStateNoData)
 	t.Run("RejectNonTargetState", testTargetStateRejectType)
 	t.Run("RejectReservedSubtype", testTargetStateRejectSubtype)
@@ -61,6 +62,24 @@ func testTargetStatePopulated(t *testing.T) {
 	assertFalse(t, "ApproachMode", ts.ApproachMode)
 	assertTrue(t, "TCASOperational", ts.TCASOperational)
 	assertTrue(t, "LNAVEngaged", ts.LNAVEngaged)
+}
+
+// The MCP/FCU mode flags are decoded from their raw bits regardless of the
+// mode-bits status; ModeBitsValid reports whether they are meaningful. Here
+// the autopilot bit is set while the status bit is clear.
+func testTargetStateModeInvalid(t *testing.T) {
+	ts, err := mustVelMsg(t, "8D40621DEA000000000100000000").TargetState()
+	if err != nil {
+		t.Fatalf("TargetState: %v", err)
+	}
+
+	if ts.ModeBitsValid {
+		t.Error("ModeBitsValid = true, want false")
+	}
+
+	if !ts.AutopilotEngaged {
+		t.Error("AutopilotEngaged = false, want true (raw bit set)")
+	}
 }
 
 func testTargetStateNoData(t *testing.T) {
