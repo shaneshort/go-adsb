@@ -209,7 +209,8 @@ func TestRawBits(t *testing.T) {
 }
 
 // A request for exactly 64 bits is the maximum a uint64 holds and must not
-// panic.
+// panic. The vector is a valid 14-byte DF17 frame (leading 0x88 = DF 17) so
+// that UnmarshalBinary accepts it and the Bits width guard can be reached.
 func testRawBitsMax64(t *testing.T) {
 	b, err := hex.DecodeString("88aabbccddeeff00aabbccddeeff")
 	if err != nil {
@@ -236,7 +237,8 @@ func testRawBitsMax64(t *testing.T) {
 }
 
 // A request for 65 bits exceeds the 64-bit result and must panic rather than
-// silently truncate.
+// silently truncate. The vector is a valid 14-byte DF17 frame so that
+// UnmarshalBinary accepts it and the Bits width guard can be reached.
 func testRawBitsOver64(t *testing.T) {
 	b, err := hex.DecodeString("88aabbccddeeff00aabbccddeeff")
 	if err != nil {
