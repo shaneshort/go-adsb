@@ -160,30 +160,37 @@ func octalSquawk(sqk []byte) int {
 	return int(sqk[0])*1000 + int(sqk[1])*100 + int(sqk[2])*10 + int(sqk[3])
 }
 
-// acasRAFormat is the downlink format of the long air-air surveillance reply
-// whose MV field carries the ACAS resolution advisory (register 30).
-const acasRAFormat = 16
+// ACAS resolution advisory downlink formats. The MV field of a DF16 long
+// air-air surveillance reply and the MB field of a DF20/21 Comm-B reply
+// (BDS 3,0) both carry the register 30 content at the same frame bits.
+const (
+	acasRAFormat    = 16 // DF16 long air-air surveillance reply (MV field)
+	commBFormat     = 20 // DF20 Comm-B altitude reply (MB field)
+	commBIdentReply = 21 // DF21 Comm-B identity reply (MB field)
+)
 
-// ACASRA returns the decoded ACAS resolution advisory from the MV field of a
-// DF16 long air-air surveillance reply, interpreting it as transponder
-// register 30 (ICAO Annex 10 Vol IV §4.3.8.4.2.2.1). The MV field occupies the
-// same frame bits (33-88) as the extended squitter ME field, so the register
-// decode is shared with the TC28 subtype 2 broadcast.
+// ACASRA returns the decoded ACAS resolution advisory (transponder register
+// 30), interpreting the register content per ICAO Annex 10 Vol IV
+// §4.3.8.4.2.2.1. The register is carried in the MV field of a DF16 long
+// air-air surveillance reply and in the MB field of a DF20/21 Comm-B reply
+// (BDS 3,0); both occupy the same frame bits (33-88) as the extended squitter
+// ME field, so the register decode is shared with the TC28 subtype 2 broadcast.
 //
-// It returns an error wrapping ErrNotAvailable unless the message is a DF16
-// reply. The register identity is not verified; a DF16 reply to a GICB request
-// for another register decodes as a meaningless RA.
+// It returns an error wrapping ErrNotAvailable unless the message is a DF16,
+// DF20 or DF21 reply. The register identity is not verified; a Comm-B reply
+// carrying another register decodes as a meaningless RA.
 func (m *Message) ACASRA() (*ACASRA, error) {
 	df, err := m.raw.DF()
 	if err != nil {
 		return nil, newError(err, "error retrieving ACAS RA")
 	}
 
-	if df != acasRAFormat {
+	switch df {
+	case acasRAFormat, commBFormat, commBIdentReply:
+		return decodeACASRA(m.raw), nil
+	default:
 		return nil, newErrorf(ErrNotAvailable, "ACAS RA not available in format %d", df)
 	}
-
-	return decodeACASRA(m.raw), nil
 }
 
 // decodeACASRA decodes the TCAS resolution advisory (register 30) per ICAO

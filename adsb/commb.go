@@ -140,6 +140,24 @@ func (m *Message) DataLinkCapability() (*DataLinkCapability, error) {
 	}, nil
 }
 
+// EmergencyPriorityStatus decodes the MB field as a BDS 6,1 emergency/priority
+// status report and returns the emergency state (ICAO Doc 9871 Table A-2-97,
+// MB bits 9-11). It returns an error wrapping ErrNotAvailable unless the
+// message is a Comm-B reply (DF 20 or 21).
+//
+// Unlike the extended squitter emergency broadcast, this register carries no
+// Mode A code (MB bits 12-56 are reserved), so the returned Squawk is always
+// nil. The register identity is not verified; note also that Table A-2-97
+// discourages GICB read-out of BDS 6,1 as its contents may be indeterminate.
+func (m *Message) EmergencyPriorityStatus() (*EmergencyStatus, error) {
+	r, err := m.commBRaw()
+	if err != nil {
+		return nil, err
+	}
+
+	return &EmergencyStatus{State: adsbtype.EPS(r.mbbits(9, 11))}, nil
+}
+
 // gicbRegisters maps each assigned BDS 1,7 status bit to the GICB register it
 // reports as available, per ICAO Doc 9871 Table A-2-23. MB bits 25-26
 // (reserved for aircraft capability) and 30-56 (reserved) carry no register

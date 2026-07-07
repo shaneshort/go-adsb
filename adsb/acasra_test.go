@@ -51,8 +51,41 @@ func TestACASRADF16(t *testing.T) {
 	}
 }
 
-// The ACAS RA is only available from a DF16 reply.
-func TestACASRARejectNonDF16(t *testing.T) {
+// A DF20/21 Comm-B reply carries the same register-30 content in its MB field
+// as the BDS 3,0 GICB readout, decoded at the same frame bits as the DF16 MV
+// field. Both DF20 (altitude) and DF21 (identity) vectors hold the same
+// register-30 content as the DF16 test.
+func TestACASRACommB(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		hex  string
+	}{
+		{"DF20", "A000000030800165018874000000"},
+		{"DF21", "A800000030800165018874000000"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			ra, err := mustVelMsg(t, c.hex).ACASRA()
+			if err != nil {
+				t.Fatalf("ACASRA: %v", err)
+			}
+
+			assertEq(t, "ARA", ra.ARA, 0x2000)
+			assertEq(t, "RAC", ra.RAC, 0x5)
+			assertTrue(t, "RATerminated", ra.RATerminated)
+			assertFalse(t, "MultipleThreat", ra.MultipleThreat)
+			assertEq(t, "ThreatTypeIndicator", ra.ThreatTypeIndicator, 1)
+			assertTrue(t, "SingleThreat", ra.SingleThreat)
+
+			if ra.ThreatICAO != 0x40621D {
+				t.Errorf("ThreatICAO = %06X, want 40621D", ra.ThreatICAO)
+			}
+		})
+	}
+}
+
+// The ACAS RA is available only from a DF16 air-air reply or a DF20/21 Comm-B
+// reply; an extended squitter (DF17) has no such field.
+func TestACASRARejectUnsupported(t *testing.T) {
 	_, err := mustVelMsg(t, "8D485020994409940838175B284F").ACASRA()
 	if !errors.Is(err, adsb.ErrNotAvailable) {
 		t.Errorf("err = %v, want ErrNotAvailable", err)

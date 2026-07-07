@@ -209,6 +209,39 @@ func TestCommBRejectNonReply(t *testing.T) {
 	if !errors.Is(err, adsb.ErrNotAvailable) {
 		t.Errorf("CommonUsageGICB err = %v, want ErrNotAvailable", err)
 	}
+
+	_, err = msg.EmergencyPriorityStatus()
+	if !errors.Is(err, adsb.ErrNotAvailable) {
+		t.Errorf("EmergencyPriorityStatus err = %v, want ErrNotAvailable", err)
+	}
+}
+
+// BDS 6,1 emergency/priority status: emergency state 3 (minimum fuel). The
+// register carries no Mode A code (MB bits 12-56 are reserved per ICAO Doc
+// 9871 Table A-2-97), so Squawk is nil. The report decodes from both DF20 and
+// DF21 replies, and the reserved bits are ignored even when set.
+func TestEmergencyPriorityStatus(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		hex  string
+	}{
+		{"DF20", "A0000000E1600000000000000000"},
+		{"DF21", "A8000000E1600000000000000000"},
+		{"ReservedBitsSet", "A0000000E17FFFFFFFFFFF000000"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e, err := mustVelMsg(t, c.hex).EmergencyPriorityStatus()
+			if err != nil {
+				t.Fatalf("EmergencyPriorityStatus: %v", err)
+			}
+
+			if e.State != adsbtype.EPS3 {
+				t.Errorf("State = %v, want %v", e.State, adsbtype.EPS3)
+			}
+
+			wantNil(t, "Squawk", e.Squawk == nil)
+		})
+	}
 }
 
 // BDS 1,7 common usage GICB capability report: registers 0,5, 0,9, 2,0, 4,0,
