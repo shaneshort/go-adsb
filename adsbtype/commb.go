@@ -247,6 +247,42 @@ func (c FOM) String() string {
 	return fmt.Sprintf("Unknown value %d", c)
 }
 
+// AntennaType is the type of an antenna reported in the antenna positions
+// register (BDS 2,2).
+type AntennaType uint64
+
+// Antenna type values. Values 4 to 7 are reserved.
+const (
+	AntennaType0 AntennaType = 0 // Invalid
+	AntennaType1 AntennaType = 1 // Mode S bottom antenna
+	AntennaType2 AntennaType = 2 // Mode S top antenna
+	AntennaType3 AntennaType = 3 // GNSS antenna
+)
+
+// antennaTypeReservedMax is the highest 3-bit antenna type value; 4 to 7 are
+// reserved.
+const antennaTypeReservedMax AntennaType = 7
+
+var mAntennaType = map[AntennaType]string{
+	AntennaType0: "Invalid",
+	AntennaType1: "Mode S bottom antenna",
+	AntennaType2: "Mode S top antenna",
+	AntennaType3: "GNSS antenna",
+}
+
+// String representation of AntennaType.
+func (c AntennaType) String() string {
+	if str, ok := mAntennaType[c]; ok {
+		return str
+	}
+
+	if c <= antennaTypeReservedMax {
+		return reserved
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
 // Hazard is the two-bit severity coding shared by the meteorological hazard
 // fields: turbulence in BDS 4,4 and every hazard in BDS 4,5.
 type Hazard uint64
