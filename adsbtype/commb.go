@@ -200,6 +200,71 @@ func (c SSS) String() string {
 	return fmt.Sprintf("Unknown value %d", c)
 }
 
+// FOM is the figure-of-merit / source subfield of a meteorological routine air
+// report (BDS 4,4), identifying the navigation source of the wind data.
+type FOM uint64
+
+// Figure of Merit / Source values. Values 5 to 15 are reserved.
+const (
+	FOM0 FOM = 0 // Invalid
+	FOM1 FOM = 1 // INS
+	FOM2 FOM = 2 // GNSS
+	FOM3 FOM = 3 // DME/DME
+	FOM4 FOM = 4 // VOR/DME
+)
+
+// fomReservedMax is the highest 4-bit FOM/source value; 5 to 15 are reserved.
+const fomReservedMax FOM = 15
+
+var mFOM = map[FOM]string{
+	FOM0: "Invalid",
+	FOM1: "INS",
+	FOM2: "GNSS",
+	FOM3: "DME/DME",
+	FOM4: "VOR/DME",
+}
+
+// String representation of FOM.
+func (c FOM) String() string {
+	if str, ok := mFOM[c]; ok {
+		return str
+	}
+
+	if c <= fomReservedMax {
+		return "Reserved"
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
+// Hazard is the two-bit severity coding shared by the meteorological hazard
+// fields: turbulence in BDS 4,4 and every hazard in BDS 4,5.
+type Hazard uint64
+
+// Hazard severity values.
+const (
+	Hazard0 Hazard = 0 // Nil
+	Hazard1 Hazard = 1 // Light
+	Hazard2 Hazard = 2 // Moderate
+	Hazard3 Hazard = 3 // Severe
+)
+
+var mHazard = map[Hazard]string{
+	Hazard0: "Nil",
+	Hazard1: "Light",
+	Hazard2: "Moderate",
+	Hazard3: "Severe",
+}
+
+// String representation of Hazard.
+func (c Hazard) String() string {
+	if str, ok := mHazard[c]; ok {
+		return str
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
 // TRS is the transmission rate subfield.
 type TRS uint64
 

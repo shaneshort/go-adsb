@@ -59,6 +59,11 @@ func TestConst(t *testing.T) {
 		adsbtype.AST0:  "adsbtype.AST: Indicated airspeed (IAS)",
 		adsbtype.AST1:  "adsbtype.AST: True airspeed (TAS)",
 
+		adsbtype.FOM2:    "adsbtype.FOM: GNSS",
+		adsbtype.FOM(7):  "adsbtype.FOM: Reserved",
+		adsbtype.Hazard0: "adsbtype.Hazard: Nil",
+		adsbtype.Hazard3: "adsbtype.Hazard: Severe",
+
 		adsbtype.TYPE0: "adsbtype.TYPE: No position information",
 	} {
 		result := fmt.Sprintf("%T: %s", val, val)
@@ -88,6 +93,9 @@ func TestConstUnknown(t *testing.T) {
 		adsbtype.HRD(99):   "adsbtype.HRD: Unknown value 99",
 		adsbtype.VRS(99):   "adsbtype.VRS: Unknown value 99",
 		adsbtype.AST(99):   "adsbtype.AST: Unknown value 99",
+
+		adsbtype.FOM(99):    "adsbtype.FOM: Unknown value 99",
+		adsbtype.Hazard(99): "adsbtype.Hazard: Unknown value 99",
 
 		adsbtype.TYPE(99): "adsbtype.TYPE: Unknown value 99",
 	} {
