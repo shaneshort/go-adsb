@@ -24,9 +24,11 @@ package adsb_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"kreklow.us/go/go-adsb/adsb"
+	"kreklow.us/go/go-adsb/adsbtype"
 )
 
 // Comm-B vectors were constructed from explicit subfield values using the
@@ -196,5 +198,210 @@ func TestCommBRejectNonReply(t *testing.T) {
 	_, err = msg.SelectedVerticalIntention()
 	if !errors.Is(err, adsb.ErrNotAvailable) {
 		t.Errorf("SelectedVerticalIntention err = %v, want ErrNotAvailable", err)
+	}
+
+	_, err = msg.DataLinkCapability()
+	if !errors.Is(err, adsb.ErrNotAvailable) {
+		t.Errorf("DataLinkCapability err = %v, want ErrNotAvailable", err)
+	}
+
+	_, err = msg.CommonUsageGICB()
+	if !errors.Is(err, adsb.ErrNotAvailable) {
+		t.Errorf("CommonUsageGICB err = %v, want ErrNotAvailable", err)
+	}
+
+	_, err = msg.EmergencyPriorityStatus()
+	if !errors.Is(err, adsb.ErrNotAvailable) {
+		t.Errorf("EmergencyPriorityStatus err = %v, want ErrNotAvailable", err)
+	}
+
+	_, err = msg.RegistrationMarkings()
+	if !errors.Is(err, adsb.ErrNotAvailable) {
+		t.Errorf("RegistrationMarkings err = %v, want ErrNotAvailable", err)
+	}
+
+	_, err = msg.SpecificServicesGICB(adsbtype.BDS18)
+	if !errors.Is(err, adsb.ErrNotAvailable) {
+		t.Errorf("SpecificServicesGICB err = %v, want ErrNotAvailable", err)
+	}
+}
+
+// BDS 2,1 aircraft and airline registration markings: 7-character aircraft
+// registration and 2-character airline marking, both IA-5 coded per ICAO Doc
+// 9871 Table A-2-33.
+func TestRegistrationMarkings(t *testing.T) {
+	r, err := mustVelMsg(t, "A0000000AC40210620B446000000").RegistrationMarkings()
+	if err != nil {
+		t.Fatalf("RegistrationMarkings: %v", err)
+	}
+
+	if r.AircraftRegistration != "VHABCDE" {
+		t.Errorf("AircraftRegistration = %q, want %q", r.AircraftRegistration, "VHABCDE")
+	}
+
+	if r.AirlineRegistration != "QF" {
+		t.Errorf("AirlineRegistration = %q, want %q", r.AirlineRegistration, "QF")
+	}
+}
+
+// With both status bits clear, the registration strings are empty.
+func TestRegistrationMarkingsNoData(t *testing.T) {
+	r, err := mustVelMsg(t, "A000000000000000000000000000").RegistrationMarkings()
+	if err != nil {
+		t.Fatalf("RegistrationMarkings: %v", err)
+	}
+
+	if r.AircraftRegistration != "" || r.AirlineRegistration != "" {
+		t.Errorf("expected empty registrations, got %q / %q",
+			r.AircraftRegistration, r.AirlineRegistration)
+	}
+}
+
+// BDS 1,8 to 1,C report which registers are installed as a bitmap. This BDS
+// 1,8 vector marks registers 0,5, 1,0 and 3,0 available (ICAO Doc 9871 Table
+// A-2-24, register = base + 56 - bit).
+func TestSpecificServicesGICB(t *testing.T) {
+	got, err := mustVelMsg(t, "A000000000800000008010000000").SpecificServicesGICB(adsbtype.BDS18)
+	if err != nil {
+		t.Fatalf("SpecificServicesGICB: %v", err)
+	}
+
+	want := []adsbtype.BDS{adsbtype.BDS05, adsbtype.BDS10, adsbtype.BDS30}
+	if !slices.Equal(got, want) {
+		t.Errorf("SpecificServicesGICB = %v, want %v", got, want)
+	}
+}
+
+// BDS 1,C uses only MB bits 26-56 (registers E,1 to F,F); its 25 most
+// significant bits are unused. This vector sets bit 56 (register E,1), bit 26
+// (register F,F) and two of the unused MSBs (bits 1 and 25), proving the
+// unused bits are ignored (ICAO Doc 9871 Table A-2-24).
+func TestSpecificServicesGICB1C(t *testing.T) {
+	got, err := mustVelMsg(t, "A0000000800000C0000001000000").SpecificServicesGICB(adsbtype.BDS1C)
+	if err != nil {
+		t.Fatalf("SpecificServicesGICB: %v", err)
+	}
+
+	want := []adsbtype.BDS{adsbtype.BDSE1, adsbtype.BDS(0xFF)}
+	if !slices.Equal(got, want) {
+		t.Errorf("SpecificServicesGICB = %v, want %v", got, want)
+	}
+}
+
+// SpecificServicesGICB rejects a register that is not one of the specific
+// services capability registers (BDS 1,8 to 1,C).
+func TestSpecificServicesGICBRejectRegister(t *testing.T) {
+	_, err := mustVelMsg(t, "A000000000000000000000000000").SpecificServicesGICB(adsbtype.BDS40)
+	if !errors.Is(err, adsb.ErrNotAvailable) {
+		t.Errorf("err = %v, want ErrNotAvailable", err)
+	}
+}
+
+// BDS 6,1 emergency/priority status: emergency state 3 (minimum fuel). The
+// register carries no Mode A code (MB bits 12-56 are reserved per ICAO Doc
+// 9871 Table A-2-97), so Squawk is nil. The report decodes from both DF20 and
+// DF21 replies, and the reserved bits are ignored even when set.
+func TestEmergencyPriorityStatus(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		hex  string
+	}{
+		{"DF20", "A0000000E1600000000000000000"},
+		{"DF21", "A8000000E1600000000000000000"},
+		{"ReservedBitsSet", "A0000000E17FFFFFFFFFFF000000"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e, err := mustVelMsg(t, c.hex).EmergencyPriorityStatus()
+			if err != nil {
+				t.Fatalf("EmergencyPriorityStatus: %v", err)
+			}
+
+			if e.State != adsbtype.EPS3 {
+				t.Errorf("State = %v, want %v", e.State, adsbtype.EPS3)
+			}
+
+			wantNil(t, "Squawk", e.Squawk == nil)
+		})
+	}
+}
+
+// BDS 1,7 common usage GICB capability report: registers 0,5, 0,9, 2,0, 4,0,
+// 5,0, 6,0 and F,1 marked available. Vector built from the MB bit assignments
+// of ICAO Doc 9871 Table A-2-23.
+func TestCommonUsageGICB(t *testing.T) {
+	got, err := mustVelMsg(t, "A00000008A810108000000000000").CommonUsageGICB()
+	if err != nil {
+		t.Fatalf("CommonUsageGICB: %v", err)
+	}
+
+	want := []adsbtype.BDS{
+		adsbtype.BDS05, adsbtype.BDS09, adsbtype.BDS20,
+		adsbtype.BDS40, adsbtype.BDS50, adsbtype.BDS60, adsbtype.BDSF1,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("CommonUsageGICB = %v, want %v", got, want)
+	}
+}
+
+// BDS 1,7 bits 27 and 28 map to the E,1 and E,2 built-in test equipment
+// registers (ICAO Doc 9871 Table A-2-23).
+func TestCommonUsageGICBBITE(t *testing.T) {
+	got, err := mustVelMsg(t, "A000000000000030000000000000").CommonUsageGICB()
+	if err != nil {
+		t.Fatalf("CommonUsageGICB: %v", err)
+	}
+
+	want := []adsbtype.BDS{adsbtype.BDSE1, adsbtype.BDSE2}
+	if !slices.Equal(got, want) {
+		t.Errorf("CommonUsageGICB = %v, want %v", got, want)
+	}
+}
+
+// BDS 1,0 data link capability report: overlay command and ACAS capable,
+// Mode S subnetwork version 4, enhanced protocol and specific services,
+// uplink ELM 3, downlink ELM 5, aircraft ID and squitter capable, no SI code,
+// common-usage GICB present, ACAS additional capability 10, DTE sub-address
+// status 0xACE1. Vector built from the MB bit ranges of ICAO Annex 10 Vol IV
+// Table 3-6.
+func TestDataLinkCapability(t *testing.T) {
+	dlc, err := mustVelMsg(t, "A0000000100309B5DAACE1000000").DataLinkCapability()
+	if err != nil {
+		t.Fatalf("DataLinkCapability: %v", err)
+	}
+
+	wantBool(t, "ContinuationFlag", dlc.ContinuationFlag, false)
+	wantBool(t, "OverlayCommandCapability", dlc.OverlayCommandCapability, true)
+	wantBool(t, "ACASCapability", dlc.ACASCapability, true)
+	wantU8(t, "ModeSSubnetworkVersion", dlc.ModeSSubnetworkVersion, 4)
+	wantBool(t, "TransponderEnhancedProtocol", dlc.TransponderEnhancedProtocol, true)
+	wantBool(t, "SpecificServicesCapability", dlc.SpecificServicesCapability, true)
+	wantU8(t, "UplinkELMCapability", dlc.UplinkELMCapability, 3)
+	wantU8(t, "DownlinkELMCapability", dlc.DownlinkELMCapability, 5)
+	wantBool(t, "AircraftIdentificationCapable", dlc.AircraftIdentificationCapable, true)
+	wantBool(t, "SquitterCapability", dlc.SquitterCapability, true)
+	wantBool(t, "SurveillanceIdentifierCode", dlc.SurveillanceIdentifierCode, false)
+	wantBool(t, "CommonUsageGICBCapability", dlc.CommonUsageGICBCapability, true)
+	wantU8(t, "ACASAdditionalCapability", dlc.ACASAdditionalCapability, 10)
+
+	if dlc.DTESubaddressStatus != 0xACE1 {
+		t.Errorf("DTESubaddressStatus = %#04x, want 0xACE1", dlc.DTESubaddressStatus)
+	}
+}
+
+// wantBool asserts a bool field equals want.
+func wantBool(t *testing.T, name string, got, want bool) {
+	t.Helper()
+
+	if got != want {
+		t.Errorf("%s = %t, want %t", name, got, want)
+	}
+}
+
+// wantU8 asserts a uint8 field equals want.
+func wantU8(t *testing.T, name string, got, want uint8) {
+	t.Helper()
+
+	if got != want {
+		t.Errorf("%s = %d, want %d", name, got, want)
 	}
 }

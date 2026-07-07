@@ -44,6 +44,8 @@ func TestConst(t *testing.T) {
 
 		adsbtype.ATS0:  "adsbtype.ATS: Barometric altitude",
 		adsbtype.BDS02: "adsbtype.BDS: Linked Comm-B, segment 2",
+		adsbtype.BDSE1: "adsbtype.BDS: Reserved for Mode S BITE (built-in test equipment)",
+		adsbtype.BDSE2: "adsbtype.BDS: Reserved for Mode S BITE (built-in test equipment)",
 		adsbtype.SSS0:  "adsbtype.SSS: No condition information",
 		adsbtype.TRS0:  "adsbtype.TRS: No capability",
 		adsbtype.D0:    "adsbtype.AcCat: No ADS-B emitter category information",
@@ -56,6 +58,22 @@ func TestConst(t *testing.T) {
 		adsbtype.VRS1:  "adsbtype.VRS: Barometric",
 		adsbtype.AST0:  "adsbtype.AST: Indicated airspeed (IAS)",
 		adsbtype.AST1:  "adsbtype.AST: True airspeed (TAS)",
+
+		adsbtype.FOM2:    "adsbtype.FOM: GNSS",
+		adsbtype.FOM(7):  "adsbtype.FOM: Reserved",
+		adsbtype.Hazard0: "adsbtype.Hazard: Nil",
+		adsbtype.Hazard3: "adsbtype.Hazard: Severe",
+		adsbtype.IDF0:    "adsbtype.IDF: Part number",
+		adsbtype.IDF1:    "adsbtype.IDF: Character",
+		adsbtype.IDF2:    "adsbtype.IDF: Reserved",
+		adsbtype.BDS18:   "adsbtype.BDS: Mode S specific services GICB capability report (1 of 5)",
+
+		adsbtype.SDI0: "adsbtype.SDI: Not used",
+		adsbtype.SDI1: "adsbtype.SDI: Side 1",
+		adsbtype.CIS2: "adsbtype.CIS: Port B or 2",
+		adsbtype.DSS0: "adsbtype.DSS: No data or not used",
+		adsbtype.DSS1: "adsbtype.DSS: Source 1 in use",
+		adsbtype.BST3: "adsbtype.BST: Fail",
 
 		adsbtype.TYPE0: "adsbtype.TYPE: No position information",
 	} {
@@ -86,6 +104,14 @@ func TestConstUnknown(t *testing.T) {
 		adsbtype.HRD(99):   "adsbtype.HRD: Unknown value 99",
 		adsbtype.VRS(99):   "adsbtype.VRS: Unknown value 99",
 		adsbtype.AST(99):   "adsbtype.AST: Unknown value 99",
+
+		adsbtype.FOM(99):    "adsbtype.FOM: Unknown value 99",
+		adsbtype.Hazard(99): "adsbtype.Hazard: Unknown value 99",
+		adsbtype.IDF(99):    "adsbtype.IDF: Unknown value 99",
+		adsbtype.SDI(99):    "adsbtype.SDI: Unknown value 99",
+		adsbtype.CIS(99):    "adsbtype.CIS: Unknown value 99",
+		adsbtype.DSS(99):    "adsbtype.DSS: Unknown value 99",
+		adsbtype.BST(99):    "adsbtype.BST: Unknown value 99",
 
 		adsbtype.TYPE(99): "adsbtype.TYPE: Unknown value 99",
 	} {

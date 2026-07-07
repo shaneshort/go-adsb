@@ -22,7 +22,12 @@
 
 package adsb
 
-import "github.com/ccoveille/go-safecast/v2"
+import (
+	"bytes"
+
+	"github.com/ccoveille/go-safecast/v2"
+	"kreklow.us/go/go-adsb/adsbtype"
+)
 
 // Comm-B (DF20/21) BDS register field scaling. Bit ranges are from ICAO
 // Annex 10 Vol IV Table 3-10; the LSB scaling and sign handling follow ICAO
@@ -80,6 +85,238 @@ type HeadingAndSpeed struct {
 	Mach                     *float64 // ratio
 	BarometricAltitudeRate   *int     // feet/minute, positive up
 	InertialVerticalVelocity *int     // feet/minute, positive up
+}
+
+// DataLinkCapability is a decoded Comm-B data link capability report
+// (BDS 1,0). The fields follow the MB bit assignments of ICAO Annex 10 Vol IV
+// Table 3-6.
+//
+// ACAS capability spans two non-contiguous subfields (MB bits 16 and 37-40):
+// ACASCapability holds bit 16 and ACASAdditionalCapability holds bits 37-40 as
+// a raw value; Annex 10 does not further subdivide the latter (its coding is
+// defined in ICAO Doc 9871). The uplink and downlink ELM capability fields are
+// likewise retained as raw coded values.
+type DataLinkCapability struct {
+	ContinuationFlag              bool   // MB bit 9: further capability reports follow
+	OverlayCommandCapability      bool   // MB bit 15
+	ACASCapability                bool   // MB bit 16
+	ModeSSubnetworkVersion        uint8  // MB bits 17-23
+	TransponderEnhancedProtocol   bool   // MB bit 24: 1 = Level 5, 0 = Level 2-4
+	SpecificServicesCapability    bool   // MB bit 25: any GICB/MSP service register loaded
+	UplinkELMCapability           uint8  // MB bits 26-28, raw coded throughput
+	DownlinkELMCapability         uint8  // MB bits 29-32, raw coded throughput
+	AircraftIdentificationCapable bool   // MB bit 33
+	SquitterCapability            bool   // MB bit 34: squitter capability subfield (SCS)
+	SurveillanceIdentifierCode    bool   // MB bit 35: SI code capability (SIC)
+	CommonUsageGICBCapability     bool   // MB bit 36: common-usage GICB report (BDS 1,7) changed
+	ACASAdditionalCapability      uint8  // MB bits 37-40, raw
+	DTESubaddressStatus           uint16 // MB bits 41-56: status of DTE sub-addresses 0-15
+}
+
+// DataLinkCapability decodes the MB field as a BDS 1,0 data link capability
+// report. It returns an error wrapping ErrNotAvailable unless the message is a
+// Comm-B reply (DF 20 or 21). The register identity is not verified beyond the
+// downlink format; use InferBDS to check that the MB field self-identifies as
+// BDS 1,0 (its first eight bits equal 0x10).
+func (m *Message) DataLinkCapability() (*DataLinkCapability, error) {
+	r, err := m.commBRaw()
+	if err != nil {
+		return nil, err
+	}
+
+	return &DataLinkCapability{
+		ContinuationFlag:              r.mbbits(9, 9) == 1,
+		OverlayCommandCapability:      r.mbbits(15, 15) == 1,
+		ACASCapability:                r.mbbits(16, 16) == 1,
+		ModeSSubnetworkVersion:        asU8(r.mbbits(17, 23)),
+		TransponderEnhancedProtocol:   r.mbbits(24, 24) == 1,
+		SpecificServicesCapability:    r.mbbits(25, 25) == 1,
+		UplinkELMCapability:           asU8(r.mbbits(26, 28)),
+		DownlinkELMCapability:         asU8(r.mbbits(29, 32)),
+		AircraftIdentificationCapable: r.mbbits(33, 33) == 1,
+		SquitterCapability:            r.mbbits(34, 34) == 1,
+		SurveillanceIdentifierCode:    r.mbbits(35, 35) == 1,
+		CommonUsageGICBCapability:     r.mbbits(36, 36) == 1,
+		ACASAdditionalCapability:      asU8(r.mbbits(37, 40)),
+		DTESubaddressStatus:           asU16(r.mbbits(41, 56)),
+	}, nil
+}
+
+// EmergencyPriorityStatus decodes the MB field as a BDS 6,1 emergency/priority
+// status report and returns the emergency state (ICAO Doc 9871 Table A-2-97,
+// MB bits 9-11). It returns an error wrapping ErrNotAvailable unless the
+// message is a Comm-B reply (DF 20 or 21).
+//
+// Unlike the extended squitter emergency broadcast, this register carries no
+// Mode A code (MB bits 12-56 are reserved), so the returned Squawk is always
+// nil. The register identity is not verified; note also that Table A-2-97
+// discourages GICB read-out of BDS 6,1 as its contents may be indeterminate.
+func (m *Message) EmergencyPriorityStatus() (*EmergencyStatus, error) {
+	r, err := m.commBRaw()
+	if err != nil {
+		return nil, err
+	}
+
+	return &EmergencyStatus{State: adsbtype.EPS(r.mbbits(9, 11))}, nil
+}
+
+// mbString decodes n consecutive 6-bit IA-5 characters from the MB field
+// starting at bit start, using the Mode S character set, and trims trailing
+// spaces. It is shared by the registration-marking register (BDS 2,1) and the
+// transponder-identity registers (BDS E,3 to E,6).
+func mbString(r *RawMessage, start, n int) string {
+	b := make([]byte, n)
+
+	for i := range n {
+		pos := start + i*6
+		b[i] = callChars[r.mbbits(pos, pos+5)]
+	}
+
+	return string(bytes.TrimRight(b, " "))
+}
+
+// RegistrationMarkings is a decoded Comm-B aircraft and airline registration
+// marking report (BDS 2,1). A string is empty when its status bit is clear.
+type RegistrationMarkings struct {
+	AircraftRegistration string // up to 7 characters
+	AirlineRegistration  string // up to 2 characters
+}
+
+// RegistrationMarkings decodes the MB field as a BDS 2,1 aircraft and airline
+// registration marking report (ICAO Doc 9871 Table A-2-33). It returns an
+// error wrapping ErrNotAvailable unless the message is a Comm-B reply
+// (DF 20 or 21). The register identity is not verified.
+func (m *Message) RegistrationMarkings() (*RegistrationMarkings, error) {
+	r, err := m.commBRaw()
+	if err != nil {
+		return nil, err
+	}
+
+	rm := new(RegistrationMarkings)
+
+	if r.mbbits(1, 1) == 1 {
+		rm.AircraftRegistration = mbString(r, 2, 7)
+	}
+
+	if r.mbbits(44, 44) == 1 {
+		rm.AirlineRegistration = mbString(r, 45, 2)
+	}
+
+	return rm, nil
+}
+
+// specificServicesBase maps each Mode S specific services GICB capability
+// register (BDS 1,8 to 1,C) to the register number represented by its least
+// significant MB bit (bit 56); each more significant bit represents the next
+// register (ICAO Doc 9871 Table A-2-24).
+var specificServicesBase = map[adsbtype.BDS]uint64{
+	adsbtype.BDS18: 0x01,
+	adsbtype.BDS19: 0x39,
+	adsbtype.BDS1A: 0x71,
+	adsbtype.BDS1B: 0xA9,
+	adsbtype.BDS1C: 0xE1,
+}
+
+// mbFieldBits is the width of the Comm-B MB field.
+const mbFieldBits = 56
+
+// maxRegister is the highest transponder register number.
+const maxRegister = 0xFF
+
+// SpecificServicesGICB decodes the MB field as one of the Mode S specific
+// services GICB capability reports (BDS 1,8 to 1,C, selected by reg) and
+// returns the registers reported as installed, in ascending register order
+// (ICAO Doc 9871 Table A-2-24). It returns an error wrapping ErrNotAvailable
+// unless the message is a Comm-B reply (DF 20 or 21) and reg is one of BDS 1,8
+// to 1,C. These registers carry no self-identifying code, so the caller must
+// supply the register that was requested.
+func (m *Message) SpecificServicesGICB(reg adsbtype.BDS) ([]adsbtype.BDS, error) {
+	r, err := m.commBRaw()
+	if err != nil {
+		return nil, err
+	}
+
+	base, ok := specificServicesBase[reg]
+	if !ok {
+		return nil, newErrorf(ErrNotAvailable,
+			"register %s is not a specific services GICB report", reg)
+	}
+
+	var avail []adsbtype.BDS
+
+	for offset := range mbFieldBits {
+		register := base + uint64(offset)
+		if register > maxRegister {
+			break
+		}
+
+		bit := mbFieldBits - offset // MB bit 56 down to 1
+		if r.mbbits(bit, bit) == 1 {
+			avail = append(avail, adsbtype.BDS(register))
+		}
+	}
+
+	return avail, nil
+}
+
+// gicbRegisters maps each assigned BDS 1,7 status bit to the GICB register it
+// reports as available, per ICAO Doc 9871 Table A-2-23. MB bits 25-26
+// (reserved for aircraft capability) and 30-56 (reserved) carry no register
+// mapping and are omitted.
+var gicbRegisters = []struct {
+	bit int
+	bds adsbtype.BDS
+}{
+	{1, adsbtype.BDS05},
+	{2, adsbtype.BDS06},
+	{3, adsbtype.BDS07},
+	{4, adsbtype.BDS08},
+	{5, adsbtype.BDS09},
+	{6, adsbtype.BDS0A},
+	{7, adsbtype.BDS20},
+	{8, adsbtype.BDS21},
+	{9, adsbtype.BDS40},
+	{10, adsbtype.BDS41},
+	{11, adsbtype.BDS42},
+	{12, adsbtype.BDS43},
+	{13, adsbtype.BDS44},
+	{14, adsbtype.BDS45},
+	{15, adsbtype.BDS48},
+	{16, adsbtype.BDS50},
+	{17, adsbtype.BDS51},
+	{18, adsbtype.BDS52},
+	{19, adsbtype.BDS53},
+	{20, adsbtype.BDS54},
+	{21, adsbtype.BDS55},
+	{22, adsbtype.BDS56},
+	{23, adsbtype.BDS5F},
+	{24, adsbtype.BDS60},
+	{27, adsbtype.BDSE1},
+	{28, adsbtype.BDSE2},
+	{29, adsbtype.BDSF1},
+}
+
+// CommonUsageGICB decodes the MB field as a BDS 1,7 common usage GICB
+// capability report and returns the GICB registers currently reported as
+// available (status bit set), in ascending register order. It returns an
+// error wrapping ErrNotAvailable unless the message is a Comm-B reply
+// (DF 20 or 21). The register identity is not verified; use InferBDS to check
+// that the MB field is plausibly a BDS 1,7 report.
+func (m *Message) CommonUsageGICB() ([]adsbtype.BDS, error) {
+	r, err := m.commBRaw()
+	if err != nil {
+		return nil, err
+	}
+
+	var avail []adsbtype.BDS
+
+	for _, g := range gicbRegisters {
+		if r.mbbits(g.bit, g.bit) == 1 {
+			avail = append(avail, g.bds)
+		}
+	}
+
+	return avail, nil
 }
 
 // mbbits returns bits n through z of the 56-bit Comm-B message (MB) field,

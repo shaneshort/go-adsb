@@ -41,8 +41,13 @@ const (
 	maxMach        = 0.9
 	maxVertRate    = 6000 // feet/minute
 
-	bds10Code = 0x10 // BDS 1,0 self-identifying prefix (ME 1-8)
-	bds20Code = 0x20 // BDS 2,0 self-identifying prefix (ME 1-8)
+	bds10Code = 0x10 // BDS 1,0 self-identifying prefix (MB 1-8)
+	bds20Code = 0x20 // BDS 2,0 self-identifying prefix (MB 1-8)
+	bds30Code = 0x30 // BDS 3,0 self-identifying prefix (MB 1-8)
+	bdsE7Code = 0xE7 // BDS E,7 self-identifying prefix (MB 1-8)
+
+	emergencyFormatCode = 28 // BDS 6,1 format type code (MB 1-5)
+	emergencySubtypeMax = 1  // highest defined BDS 6,1 subtype (MB 6-8)
 )
 
 // InferBDS returns the Comm-B BDS registers whose format is consistent with
@@ -64,10 +69,14 @@ func (m *Message) InferBDS() ([]adsbtype.BDS, error) {
 		valid func(*RawMessage) bool
 	}{
 		{adsbtype.BDS10, validBDS10},
+		{adsbtype.BDS17, validBDS17},
 		{adsbtype.BDS20, validBDS20},
+		{adsbtype.BDS30, validBDS30},
 		{adsbtype.BDS40, validBDS40},
 		{adsbtype.BDS50, validBDS50},
 		{adsbtype.BDS60, validBDS60},
+		{adsbtype.BDS61, validBDS61},
+		{adsbtype.BDSE7, validBDSE7},
 	} {
 		if c.valid(r) {
 			candidates = append(candidates, c.bds)
@@ -78,15 +87,50 @@ func (m *Message) InferBDS() ([]adsbtype.BDS, error) {
 }
 
 // validBDS10 reports whether the MB field is a data link capability report,
-// which self-identifies with the code 0x10 in its first eight bits.
+// which self-identifies with the code 0x10 in its first eight bits. MB bits
+// 10-14 are reserved by ICAO Annex 10 Vol IV Table 3-6 and must be zero.
 func validBDS10(r *RawMessage) bool {
-	return r.mbbits(1, 8) == bds10Code
+	return r.mbbits(1, 8) == bds10Code && r.mbbits(10, 14) == 0
+}
+
+// validBDS17 reports whether the MB field is plausibly a common usage GICB
+// capability report (BDS 1,7). Per ICAO Doc 9871 Table A-2-23, MB bits 30-56
+// are reserved and must be zero, while bits 1-29 hold the register status bits
+// (1-24), two aircraft-capability bits (25-26) and the E,1/E,2/F,1 bits
+// (27-29). At least one of bits 1-29 must be set, since an all-zero report
+// carries no information and is indistinguishable from an idle register.
+func validBDS17(r *RawMessage) bool {
+	return r.mbbits(30, 56) == 0 && r.mbbits(1, 29) != 0
 }
 
 // validBDS20 reports whether the MB field is an aircraft identification
 // report, which self-identifies with the code 0x20 in its first eight bits.
 func validBDS20(r *RawMessage) bool {
 	return r.mbbits(1, 8) == bds20Code
+}
+
+// validBDS30 reports whether the MB field is an ACAS active resolution
+// advisory, which self-identifies with the code 0x30 in its first eight bits
+// (ICAO Doc 9871 Table A-2-48).
+func validBDS30(r *RawMessage) bool {
+	return r.mbbits(1, 8) == bds30Code
+}
+
+// validBDS61 reports whether the MB field is plausibly an emergency/priority
+// status report (BDS 6,1). It self-identifies with format type code 28 in MB
+// bits 1-5 and a defined subtype (0 or 1) in MB bits 6-8; MB bits 12-56 are
+// reserved and must be zero (ICAO Doc 9871 Table A-2-97).
+func validBDS61(r *RawMessage) bool {
+	return r.mbbits(1, 5) == emergencyFormatCode &&
+		r.mbbits(6, 8) <= emergencySubtypeMax &&
+		r.mbbits(12, 56) == 0
+}
+
+// validBDSE7 reports whether the MB field is a transponder status and
+// diagnostics report, which self-identifies with the code 0xE7 in its first
+// eight bits (ICAO Doc 9871 Table A-2-231).
+func validBDSE7(r *RawMessage) bool {
+	return r.mbbits(1, 8) == bdsE7Code
 }
 
 // validBDS40 reports whether the MB field is plausibly a selected vertical

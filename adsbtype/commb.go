@@ -69,6 +69,11 @@ const (
 	BDS10 BDS = 0x10 // Data link capability report
 
 	BDS17 BDS = 0x17 // Common usage GICB capability report
+	BDS18 BDS = 0x18 // Mode S specific services GICB capability report (1 of 5)
+	BDS19 BDS = 0x19 // Mode S specific services GICB capability report (2 of 5)
+	BDS1A BDS = 0x1A // Mode S specific services GICB capability report (3 of 5)
+	BDS1B BDS = 0x1B // Mode S specific services GICB capability report (4 of 5)
+	BDS1C BDS = 0x1C // Mode S specific services GICB capability report (5 of 5)
 
 	BDS20 BDS = 0x20 // Aircraft identification
 	BDS21 BDS = 0x21 // Aircraft and airline registration markings
@@ -101,6 +106,8 @@ const (
 
 	BDS65 BDS = 0x65 // Extended squitter aircraft operational status
 
+	BDSE1 BDS = 0xE1 // Reserved for Mode S BITE (built-in test equipment)
+	BDSE2 BDS = 0xE2 // Reserved for Mode S BITE (built-in test equipment)
 	BDSE3 BDS = 0xE3 // Transponder type / part number
 	BDSE4 BDS = 0xE4 // Transponder software revision number
 	BDSE5 BDS = 0xE5 // ACAS unit part number
@@ -127,6 +134,11 @@ var mBDS = map[BDS]string{
 	BDS0C: "Air / air information 2 (aircraft intent)",
 	BDS10: "Data link capability report",
 	BDS17: "Common usage GICB capability report",
+	BDS18: "Mode S specific services GICB capability report (1 of 5)",
+	BDS19: "Mode S specific services GICB capability report (2 of 5)",
+	BDS1A: "Mode S specific services GICB capability report (3 of 5)",
+	BDS1B: "Mode S specific services GICB capability report (4 of 5)",
+	BDS1C: "Mode S specific services GICB capability report (5 of 5)",
 	BDS20: "Aircraft identification",
 	BDS21: "Aircraft and airline registration markings",
 	BDS22: "Antenna positions",
@@ -150,6 +162,8 @@ var mBDS = map[BDS]string{
 	BDS60: "Heading and speed report",
 	BDS61: "Extended squitter emergency / priority status",
 	BDS65: "Extended squitter aircraft operational status",
+	BDSE1: "Reserved for Mode S BITE (built-in test equipment)",
+	BDSE2: "Reserved for Mode S BITE (built-in test equipment)",
 	BDSE3: "Transponder type / part number",
 	BDSE4: "Transponder software revision number",
 	BDSE5: "ACAS unit part number",
@@ -190,6 +204,99 @@ var mSSS = map[SSS]string{
 // String representation of SSS.
 func (c SSS) String() string {
 	if str, ok := mSSS[c]; ok {
+		return str
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
+// FOM is the figure-of-merit / source subfield of a meteorological routine air
+// report (BDS 4,4), identifying the navigation source of the wind data.
+type FOM uint64
+
+// Figure of Merit / Source values. Values 5 to 15 are reserved.
+const (
+	FOM0 FOM = 0 // Invalid
+	FOM1 FOM = 1 // INS
+	FOM2 FOM = 2 // GNSS
+	FOM3 FOM = 3 // DME/DME
+	FOM4 FOM = 4 // VOR/DME
+)
+
+// fomReservedMax is the highest 4-bit FOM/source value; 5 to 15 are reserved.
+const fomReservedMax FOM = 15
+
+var mFOM = map[FOM]string{
+	FOM0: "Invalid",
+	FOM1: "INS",
+	FOM2: "GNSS",
+	FOM3: "DME/DME",
+	FOM4: "VOR/DME",
+}
+
+// String representation of FOM.
+func (c FOM) String() string {
+	if str, ok := mFOM[c]; ok {
+		return str
+	}
+
+	if c <= fomReservedMax {
+		return reserved
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
+// Hazard is the two-bit severity coding shared by the meteorological hazard
+// fields: turbulence in BDS 4,4 and every hazard in BDS 4,5.
+type Hazard uint64
+
+// Hazard severity values.
+const (
+	Hazard0 Hazard = 0 // Nil
+	Hazard1 Hazard = 1 // Light
+	Hazard2 Hazard = 2 // Moderate
+	Hazard3 Hazard = 3 // Severe
+)
+
+var mHazard = map[Hazard]string{
+	Hazard0: "Nil",
+	Hazard1: "Light",
+	Hazard2: "Moderate",
+	Hazard3: "Severe",
+}
+
+// String representation of Hazard.
+func (c Hazard) String() string {
+	if str, ok := mHazard[c]; ok {
+		return str
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
+// IDF is the format type subfield of the transponder and ACAS identity
+// registers (BDS E,3 to E,6), selecting how the identity payload is coded.
+type IDF uint64
+
+// Identity format type values. Values 2 and 3 are reserved.
+const (
+	IDF0 IDF = 0 // Part number (BCD coded)
+	IDF1 IDF = 1 // Character coded
+	IDF2 IDF = 2 // Reserved
+	IDF3 IDF = 3 // Reserved
+)
+
+var mIDF = map[IDF]string{
+	IDF0: "Part number",
+	IDF1: "Character",
+	IDF2: reserved,
+	IDF3: reserved,
+}
+
+// String representation of IDF.
+func (c IDF) String() string {
+	if str, ok := mIDF[c]; ok {
 		return str
 	}
 

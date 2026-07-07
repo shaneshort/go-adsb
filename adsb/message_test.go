@@ -895,6 +895,32 @@ func testCall(t *testing.T, tc *testCase, msg *adsb.Message) {
 	}
 }
 
+// Call also decodes the aircraft identification from a BDS 2,0 Comm-B reply
+// (DF20/21), which self-identifies with the code 0x20 in the first eight MB
+// bits and carries eight IA-5 characters in MB bits 9-56.
+func TestCallCommBDS20(t *testing.T) {
+	b, err := hex.DecodeString("A0000000200420C4820820000000")
+	if err != nil {
+		t.Fatalf("hex.DecodeString: %v", err)
+	}
+
+	m := new(adsb.Message)
+
+	err = m.UnmarshalBinary(b)
+	if err != nil {
+		t.Fatalf("UnmarshalBinary: %v", err)
+	}
+
+	call, err := m.Call()
+	if err != nil {
+		t.Fatalf("Call: %v", err)
+	}
+
+	if call != "ABCD" {
+		t.Errorf("Call = %q, want %q", call, "ABCD")
+	}
+}
+
 func testAlt(t *testing.T, tc *testCase, msg *adsb.Message) {
 	t.Helper()
 
