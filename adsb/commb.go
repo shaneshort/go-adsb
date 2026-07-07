@@ -23,6 +23,8 @@
 package adsb
 
 import (
+	"bytes"
+
 	"github.com/ccoveille/go-safecast/v2"
 	"kreklow.us/go/go-adsb/adsbtype"
 )
@@ -156,6 +158,105 @@ func (m *Message) EmergencyPriorityStatus() (*EmergencyStatus, error) {
 	}
 
 	return &EmergencyStatus{State: adsbtype.EPS(r.mbbits(9, 11))}, nil
+}
+
+// mbString decodes n consecutive 6-bit IA-5 characters from the MB field
+// starting at bit start, using the Mode S character set, and trims trailing
+// spaces. It is shared by the registration-marking register (BDS 2,1) and the
+// transponder-identity registers (BDS E,3 to E,6).
+func mbString(r *RawMessage, start, n int) string {
+	b := make([]byte, n)
+
+	for i := range n {
+		pos := start + i*6
+		b[i] = callChars[r.mbbits(pos, pos+5)]
+	}
+
+	return string(bytes.TrimRight(b, " "))
+}
+
+// RegistrationMarkings is a decoded Comm-B aircraft and airline registration
+// marking report (BDS 2,1). A string is empty when its status bit is clear.
+type RegistrationMarkings struct {
+	AircraftRegistration string // up to 7 characters
+	AirlineRegistration  string // up to 2 characters
+}
+
+// RegistrationMarkings decodes the MB field as a BDS 2,1 aircraft and airline
+// registration marking report (ICAO Doc 9871 Table A-2-33). It returns an
+// error wrapping ErrNotAvailable unless the message is a Comm-B reply
+// (DF 20 or 21). The register identity is not verified.
+func (m *Message) RegistrationMarkings() (*RegistrationMarkings, error) {
+	r, err := m.commBRaw()
+	if err != nil {
+		return nil, err
+	}
+
+	rm := new(RegistrationMarkings)
+
+	if r.mbbits(1, 1) == 1 {
+		rm.AircraftRegistration = mbString(r, 2, 7)
+	}
+
+	if r.mbbits(44, 44) == 1 {
+		rm.AirlineRegistration = mbString(r, 45, 2)
+	}
+
+	return rm, nil
+}
+
+// specificServicesBase maps each Mode S specific services GICB capability
+// register (BDS 1,8 to 1,C) to the register number represented by its least
+// significant MB bit (bit 56); each more significant bit represents the next
+// register (ICAO Doc 9871 Table A-2-24).
+var specificServicesBase = map[adsbtype.BDS]uint64{
+	adsbtype.BDS18: 0x01,
+	adsbtype.BDS19: 0x39,
+	adsbtype.BDS1A: 0x71,
+	adsbtype.BDS1B: 0xA9,
+	adsbtype.BDS1C: 0xE1,
+}
+
+// mbFieldBits is the width of the Comm-B MB field.
+const mbFieldBits = 56
+
+// maxRegister is the highest transponder register number.
+const maxRegister = 0xFF
+
+// SpecificServicesGICB decodes the MB field as one of the Mode S specific
+// services GICB capability reports (BDS 1,8 to 1,C, selected by reg) and
+// returns the registers reported as installed, in ascending register order
+// (ICAO Doc 9871 Table A-2-24). It returns an error wrapping ErrNotAvailable
+// unless the message is a Comm-B reply (DF 20 or 21) and reg is one of BDS 1,8
+// to 1,C. These registers carry no self-identifying code, so the caller must
+// supply the register that was requested.
+func (m *Message) SpecificServicesGICB(reg adsbtype.BDS) ([]adsbtype.BDS, error) {
+	r, err := m.commBRaw()
+	if err != nil {
+		return nil, err
+	}
+
+	base, ok := specificServicesBase[reg]
+	if !ok {
+		return nil, newErrorf(ErrNotAvailable,
+			"register %s is not a specific services GICB report", reg)
+	}
+
+	var avail []adsbtype.BDS
+
+	for offset := range mbFieldBits {
+		register := base + uint64(offset)
+		if register > maxRegister {
+			break
+		}
+
+		bit := mbFieldBits - offset // MB bit 56 down to 1
+		if r.mbbits(bit, bit) == 1 {
+			avail = append(avail, adsbtype.BDS(register))
+		}
+	}
+
+	return avail, nil
 }
 
 // gicbRegisters maps each assigned BDS 1,7 status bit to the GICB register it

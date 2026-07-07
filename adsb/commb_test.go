@@ -214,6 +214,87 @@ func TestCommBRejectNonReply(t *testing.T) {
 	if !errors.Is(err, adsb.ErrNotAvailable) {
 		t.Errorf("EmergencyPriorityStatus err = %v, want ErrNotAvailable", err)
 	}
+
+	_, err = msg.RegistrationMarkings()
+	if !errors.Is(err, adsb.ErrNotAvailable) {
+		t.Errorf("RegistrationMarkings err = %v, want ErrNotAvailable", err)
+	}
+
+	_, err = msg.SpecificServicesGICB(adsbtype.BDS18)
+	if !errors.Is(err, adsb.ErrNotAvailable) {
+		t.Errorf("SpecificServicesGICB err = %v, want ErrNotAvailable", err)
+	}
+}
+
+// BDS 2,1 aircraft and airline registration markings: 7-character aircraft
+// registration and 2-character airline marking, both IA-5 coded per ICAO Doc
+// 9871 Table A-2-33.
+func TestRegistrationMarkings(t *testing.T) {
+	r, err := mustVelMsg(t, "A0000000AC40210620B446000000").RegistrationMarkings()
+	if err != nil {
+		t.Fatalf("RegistrationMarkings: %v", err)
+	}
+
+	if r.AircraftRegistration != "VHABCDE" {
+		t.Errorf("AircraftRegistration = %q, want %q", r.AircraftRegistration, "VHABCDE")
+	}
+
+	if r.AirlineRegistration != "QF" {
+		t.Errorf("AirlineRegistration = %q, want %q", r.AirlineRegistration, "QF")
+	}
+}
+
+// With both status bits clear, the registration strings are empty.
+func TestRegistrationMarkingsNoData(t *testing.T) {
+	r, err := mustVelMsg(t, "A000000000000000000000000000").RegistrationMarkings()
+	if err != nil {
+		t.Fatalf("RegistrationMarkings: %v", err)
+	}
+
+	if r.AircraftRegistration != "" || r.AirlineRegistration != "" {
+		t.Errorf("expected empty registrations, got %q / %q",
+			r.AircraftRegistration, r.AirlineRegistration)
+	}
+}
+
+// BDS 1,8 to 1,C report which registers are installed as a bitmap. This BDS
+// 1,8 vector marks registers 0,5, 1,0 and 3,0 available (ICAO Doc 9871 Table
+// A-2-24, register = base + 56 - bit).
+func TestSpecificServicesGICB(t *testing.T) {
+	got, err := mustVelMsg(t, "A000000000800000008010000000").SpecificServicesGICB(adsbtype.BDS18)
+	if err != nil {
+		t.Fatalf("SpecificServicesGICB: %v", err)
+	}
+
+	want := []adsbtype.BDS{adsbtype.BDS05, adsbtype.BDS10, adsbtype.BDS30}
+	if !slices.Equal(got, want) {
+		t.Errorf("SpecificServicesGICB = %v, want %v", got, want)
+	}
+}
+
+// BDS 1,C uses only MB bits 26-56 (registers E,1 to F,F); its 25 most
+// significant bits are unused. This vector sets bit 56 (register E,1), bit 26
+// (register F,F) and two of the unused MSBs (bits 1 and 25), proving the
+// unused bits are ignored (ICAO Doc 9871 Table A-2-24).
+func TestSpecificServicesGICB1C(t *testing.T) {
+	got, err := mustVelMsg(t, "A0000000800000C0000001000000").SpecificServicesGICB(adsbtype.BDS1C)
+	if err != nil {
+		t.Fatalf("SpecificServicesGICB: %v", err)
+	}
+
+	want := []adsbtype.BDS{adsbtype.BDSE1, adsbtype.BDS(0xFF)}
+	if !slices.Equal(got, want) {
+		t.Errorf("SpecificServicesGICB = %v, want %v", got, want)
+	}
+}
+
+// SpecificServicesGICB rejects a register that is not one of the specific
+// services capability registers (BDS 1,8 to 1,C).
+func TestSpecificServicesGICBRejectRegister(t *testing.T) {
+	_, err := mustVelMsg(t, "A000000000000000000000000000").SpecificServicesGICB(adsbtype.BDS40)
+	if !errors.Is(err, adsb.ErrNotAvailable) {
+		t.Errorf("err = %v, want ErrNotAvailable", err)
+	}
 }
 
 // BDS 6,1 emergency/priority status: emergency state 3 (minimum fuel). The

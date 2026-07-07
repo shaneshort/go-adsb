@@ -164,7 +164,7 @@ var mEPS = map[EPS]string{
 	EPS4: "No communications",
 	EPS5: "Unlawful interference",
 	EPS6: "Downed aircraft",
-	EPS7: "Reserved",
+	EPS7: reserved,
 }
 
 // String representation of EPS.
@@ -203,11 +203,12 @@ func (c HRD) String() string {
 // AcCat is the extended squitter aircraft emitter category.
 type AcCat string
 
-// Repeated AcCat descriptions. A category code of 0 always indicates no
-// category information regardless of the set, and several codes are reserved.
+// Repeated subfield descriptions. A category code of 0 always indicates no
+// category information regardless of the set; "Reserved" is shared by several
+// reserved enum values across this package.
 const (
-	acCatNoInfo   = "No ADS-B emitter category information"
-	acCatReserved = "Reserved"
+	acCatNoInfo = "No ADS-B emitter category information"
+	reserved    = "Reserved"
 )
 
 // Extended squitter aircraft emitter category values.
@@ -263,7 +264,7 @@ var mAcCat = map[AcCat]string{
 	B2: "Lighter-than-air",
 	B3: "Parachutist / skydiver",
 	B4: "Ultralight / hang-glider / paraglider",
-	B5: acCatReserved,
+	B5: reserved,
 	B6: "Unmanned aerial vehicle",
 	B7: "Space / trans-atmospheric vehicle",
 	C0: acCatNoInfo,
@@ -272,16 +273,16 @@ var mAcCat = map[AcCat]string{
 	C3: "Point obstacle (includes tethered balloons)",
 	C4: "Cluster obstacle",
 	C5: "Line obstacle",
-	C6: acCatReserved,
-	C7: acCatReserved,
+	C6: reserved,
+	C7: reserved,
 	D0: acCatNoInfo,
-	D1: acCatReserved,
-	D2: acCatReserved,
-	D3: acCatReserved,
-	D4: acCatReserved,
-	D5: acCatReserved,
-	D6: acCatReserved,
-	D7: acCatReserved,
+	D1: reserved,
+	D2: reserved,
+	D3: reserved,
+	D4: reserved,
+	D5: reserved,
+	D6: reserved,
+	D7: reserved,
 }
 
 // String representation of AcCat.

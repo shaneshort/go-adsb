@@ -63,6 +63,17 @@ func TestConst(t *testing.T) {
 		adsbtype.FOM(7):  "adsbtype.FOM: Reserved",
 		adsbtype.Hazard0: "adsbtype.Hazard: Nil",
 		adsbtype.Hazard3: "adsbtype.Hazard: Severe",
+		adsbtype.IDF0:    "adsbtype.IDF: Part number",
+		adsbtype.IDF1:    "adsbtype.IDF: Character",
+		adsbtype.IDF2:    "adsbtype.IDF: Reserved",
+		adsbtype.BDS18:   "adsbtype.BDS: Mode S specific services GICB capability report (1 of 5)",
+
+		adsbtype.SDI0: "adsbtype.SDI: Not used",
+		adsbtype.SDI1: "adsbtype.SDI: Side 1",
+		adsbtype.CIS2: "adsbtype.CIS: Port B or 2",
+		adsbtype.DSS0: "adsbtype.DSS: No data or not used",
+		adsbtype.DSS1: "adsbtype.DSS: Source 1 in use",
+		adsbtype.BST3: "adsbtype.BST: Fail",
 
 		adsbtype.TYPE0: "adsbtype.TYPE: No position information",
 	} {
@@ -96,6 +107,11 @@ func TestConstUnknown(t *testing.T) {
 
 		adsbtype.FOM(99):    "adsbtype.FOM: Unknown value 99",
 		adsbtype.Hazard(99): "adsbtype.Hazard: Unknown value 99",
+		adsbtype.IDF(99):    "adsbtype.IDF: Unknown value 99",
+		adsbtype.SDI(99):    "adsbtype.SDI: Unknown value 99",
+		adsbtype.CIS(99):    "adsbtype.CIS: Unknown value 99",
+		adsbtype.DSS(99):    "adsbtype.DSS: Unknown value 99",
+		adsbtype.BST(99):    "adsbtype.BST: Unknown value 99",
 
 		adsbtype.TYPE(99): "adsbtype.TYPE: Unknown value 99",
 	} {
