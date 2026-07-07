@@ -252,6 +252,35 @@ func (c FS) String() string {
 	return fmt.Sprintf("Unknown value %d", c)
 }
 
+// Designator is the identifier designator subfield (IDS) of the utility
+// message (UM), indicating which interrogator identifier the IIS subfield
+// contains.
+type Designator uint64
+
+// Identifier designator subfield (IDS) values.
+const (
+	Designator0 Designator = 0 // No information
+	Designator1 Designator = 1 // Comm-B interrogator identifier
+	Designator2 Designator = 2 // Comm-C interrogator identifier
+	Designator3 Designator = 3 // Comm-D interrogator identifier
+)
+
+var mDesignator = map[Designator]string{
+	Designator0: "No information",
+	Designator1: "Comm-B interrogator identifier",
+	Designator2: "Comm-C interrogator identifier",
+	Designator3: "Comm-D interrogator identifier",
+}
+
+// String representation of Designator.
+func (c Designator) String() string {
+	if str, ok := mDesignator[c]; ok {
+		return str
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
 // RI is the reply information.
 type RI uint64
 
