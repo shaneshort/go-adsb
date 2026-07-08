@@ -65,6 +65,7 @@ func TestConst(t *testing.T) {
 		adsbtype.Hazard3:        "adsbtype.Hazard: Severe",
 		adsbtype.AntennaType1:   "adsbtype.AntennaType: Mode S bottom antenna",
 		adsbtype.AntennaType(5): "adsbtype.AntennaType: Reserved",
+		adsbtype.AudioStatus2:   "adsbtype.AudioStatus: Headphones only",
 
 		adsbtype.IDF0:  "adsbtype.IDF: Part number",
 		adsbtype.IDF1:  "adsbtype.IDF: Character",
@@ -112,6 +113,7 @@ func TestConstUnknown(t *testing.T) {
 		adsbtype.FOM(99):         "adsbtype.FOM: Unknown value 99",
 		adsbtype.Hazard(99):      "adsbtype.Hazard: Unknown value 99",
 		adsbtype.AntennaType(99): "adsbtype.AntennaType: Unknown value 99",
+		adsbtype.AudioStatus(99): "adsbtype.AudioStatus: Unknown value 99",
 		adsbtype.IDF(99):         "adsbtype.IDF: Unknown value 99",
 		adsbtype.Designator(99):  "adsbtype.Designator: Unknown value 99",
 		adsbtype.SDI(99):         "adsbtype.SDI: Unknown value 99",
