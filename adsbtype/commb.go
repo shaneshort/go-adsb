@@ -283,6 +283,34 @@ func (c AntennaType) String() string {
 	return fmt.Sprintf("Unknown value %d", c)
 }
 
+// AudioStatus is the aircrew audio monitoring status of a VHF communications
+// channel reported in the VHF channel report (BDS 4,8).
+type AudioStatus uint64
+
+// Audio monitoring status values.
+const (
+	AudioStatus0 AudioStatus = 0 // Unknown
+	AudioStatus1 AudioStatus = 1 // Nobody
+	AudioStatus2 AudioStatus = 2 // Headphones only
+	AudioStatus3 AudioStatus = 3 // Loudspeaker
+)
+
+var mAudioStatus = map[AudioStatus]string{
+	AudioStatus0: "Unknown",
+	AudioStatus1: "Nobody",
+	AudioStatus2: "Headphones only",
+	AudioStatus3: "Loudspeaker",
+}
+
+// String representation of AudioStatus.
+func (c AudioStatus) String() string {
+	if str, ok := mAudioStatus[c]; ok {
+		return str
+	}
+
+	return fmt.Sprintf("Unknown value %d", c)
+}
+
 // Hazard is the two-bit severity coding shared by the meteorological hazard
 // fields: turbulence in BDS 4,4 and every hazard in BDS 4,5.
 type Hazard uint64
