@@ -40,10 +40,28 @@ const (
 	airborneAngleRange = 360.0
 	surfaceAngleRange  = 90.0
 
-	// cprMax is the CPR field range, 2^17, used to normalise the encoded
-	// latitude and longitude to a fraction.
-	cprMax = 131072
+	// cprDefaultBits is the CPR field width assumed when a CPR's Nb is unset
+	// (zero), preserving the original 17-bit normalisation.
+	cprDefaultBits = 17
 )
+
+// cprBits returns the effective CPR field width, defaulting an unset (zero) Nb
+// to 17 bits for backward compatibility. It is used both to normalise before
+// comparing two CPRs and to scale the encoded values.
+func cprBits(nb uint8) uint8 {
+	if nb == 0 {
+		return cprDefaultBits
+	}
+
+	return nb
+}
+
+// cprScale returns the normalisation divisor 2^Nb for a CPR field, used to
+// convert an encoded latitude or longitude to a fraction. An unset (zero) Nb
+// defaults to 2^17; the coarse TIS-B format uses a 12-bit field.
+func cprScale(nb uint8) float64 {
+	return float64(uint32(1) << cprBits(nb))
+}
 
 // CPR is an extended squitter compact position report.
 type CPR struct {
@@ -74,8 +92,8 @@ func (c *CPR) DecodeLocal(rp []float64) ([]float64, error) {
 
 	latr := rp[0]
 	lonr := rp[1]
-	latc := float64(c.Lat) / cprMax
-	lonc := float64(c.Lon) / cprMax
+	latc := float64(c.Lat) / cprScale(c.Nb)
+	lonc := float64(c.Lon) / cprScale(c.Nb)
 
 	angRange := airborneAngleRange
 	if c.Surface {
@@ -125,7 +143,7 @@ func DecodeGlobalPosition(c1 *CPR, c2 *CPR) ([]float64, error) {
 		return nil, newError(nil, "incomplete arguments")
 	case c1.Surface || c2.Surface:
 		return nil, newError(nil, "global decode not supported for surface positions")
-	case c1.Nb != c2.Nb:
+	case cprBits(c1.Nb) != cprBits(c2.Nb):
 		return nil, newError(nil, "bit encoding must be equal")
 	case c1.F == c2.F:
 		return nil, newError(nil, "format must be different")
@@ -135,18 +153,20 @@ func DecodeGlobalPosition(c1 *CPR, c2 *CPR) ([]float64, error) {
 
 	var lat0, lon0, lat1, lon1 float64
 
+	scale := cprScale(c1.Nb)
+
 	if c1.F == 0 {
 		t0 = false
-		lat0 = float64(c1.Lat) / cprMax
-		lon0 = float64(c1.Lon) / cprMax
-		lat1 = float64(c2.Lat) / cprMax
-		lon1 = float64(c2.Lon) / cprMax
+		lat0 = float64(c1.Lat) / scale
+		lon0 = float64(c1.Lon) / scale
+		lat1 = float64(c2.Lat) / scale
+		lon1 = float64(c2.Lon) / scale
 	} else {
 		t0 = true
-		lat0 = float64(c2.Lat) / cprMax
-		lon0 = float64(c2.Lon) / cprMax
-		lat1 = float64(c1.Lat) / cprMax
-		lon1 = float64(c1.Lon) / cprMax
+		lat0 = float64(c2.Lat) / scale
+		lon0 = float64(c2.Lon) / scale
+		lat1 = float64(c1.Lat) / scale
+		lon1 = float64(c1.Lon) / scale
 	}
 
 	dlat0 := 360.0 / 60.0
@@ -190,7 +210,7 @@ func DecodeGlobalPositionRef(c1 *CPR, c2 *CPR, rp []float64) ([]float64, error) 
 		return nil, newError(nil, "incomplete arguments")
 	case !c1.Surface || !c2.Surface:
 		return nil, newError(nil, "reference decode is only supported for surface positions")
-	case c1.Nb != c2.Nb:
+	case cprBits(c1.Nb) != cprBits(c2.Nb):
 		return nil, newError(nil, "bit encoding must be equal")
 	case c1.F == c2.F:
 		return nil, newError(nil, "format must be different")
@@ -230,8 +250,8 @@ func DecodeGlobalPositionRef(c1 *CPR, c2 *CPR, rp []float64) ([]float64, error) 
 // against a reference. A negative reference selects the southern hemisphere.
 // ok is false if the two candidates fall in different longitude zones.
 func surfaceLatitude(even, odd *CPR, latRef float64) (latEven, latOdd float64, ok bool) {
-	cprLatEven := float64(even.Lat) / cprMax
-	cprLatOdd := float64(odd.Lat) / cprMax
+	cprLatEven := float64(even.Lat) / cprScale(even.Nb)
+	cprLatOdd := float64(odd.Lat) / cprScale(odd.Nb)
 
 	j := math.Floor((59 * cprLatEven) - (60 * cprLatOdd) + 0.5)
 
@@ -249,8 +269,8 @@ func surfaceLatitude(even, odd *CPR, latRef float64) (latEven, latOdd float64, o
 // surfaceLongitude resolves the surface-CPR longitude for the newer frame,
 // choosing the 90-degree quadrant nearest the reference longitude.
 func surfaceLongitude(even, odd *CPR, evenNewer bool, lat, lonRef float64) float64 {
-	cprLonEven := float64(even.Lon) / cprMax
-	cprLonOdd := float64(odd.Lon) / cprMax
+	cprLonEven := float64(even.Lon) / cprScale(even.Nb)
+	cprLonOdd := float64(odd.Lon) / cprScale(odd.Nb)
 
 	nl := float64(cprNL(lat))
 	m := math.Floor((cprLonEven * (nl - 1)) - (cprLonOdd * nl) + 0.5)
