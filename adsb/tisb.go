@@ -27,9 +27,21 @@ import (
 	"kreklow.us/go/go-adsb/adsbtype"
 )
 
+// DF18 control field values that carry an ICAO/Mode A flag (IMF) in their ME
+// field: the fine and coarse TIS-B formats and the ADS-R rebroadcast format.
+const (
+	tisbFineCF        = 2 // fine-format TIS-B message
+	tisbCoarseCF      = 3 // coarse-format TIS-B message
+	tisbFineNonICAOCF = 5 // fine-format TIS-B message with a non-ICAO address
+	adsrCF            = 6 // ADS-R rebroadcast message
+)
+
+// velocityType is the extended squitter type code for an airborne velocity
+// message; no shared constant exists elsewhere in the package.
+const velocityType = 19
+
 // TIS-B coarse position field scaling, from DO-260B §2.2.17.3.5.
 const (
-	tisbCoarseCF      = 3  // DF18 control field value for a coarse-format TIS-B message
 	tisbCoarseCPRBits = 12 // width of the coarse CPR latitude and longitude fields
 
 	groundTrackStep = 360.0 / 32 // degrees per count (coarse ground track)
@@ -57,6 +69,69 @@ type TISBCoarsePosition struct {
 	GroundTrack        *float64 // degrees clockwise from true north
 	GroundSpeed        *float64 // knots
 	CPR                *CPR
+}
+
+// imfMEBit returns the ME bit position of the ICAO/Mode A flag (IMF) subfield
+// for a fine-format TIS-B or ADS-R message of the given extended squitter type
+// code, and whether that type code defines an IMF subfield (DO-260B §2.2.17
+// and §2.2.18).
+func imfMEBit(tc uint64) (int, bool) {
+	switch {
+	case tc >= surfacePosTypeLo && tc <= surfacePosTypeHi: // surface position
+		return 21, true
+	case (tc >= airPosTypeLo && tc <= airPosTypeHi) ||
+		(tc >= gnssPosTypeLo && tc <= gnssPosTypeHi): // airborne position
+		return 8, true
+	case tc == velocityType: // airborne velocity
+		return 9, true
+	case tc == aircraftStatusType: // aircraft status (emergency/priority)
+		return 56, true
+	case tc == targetStateType: // target state and status
+		return 51, true
+	case tc == opStatusType: // aircraft operational status
+		return 56, true
+	default:
+		return 0, false
+	}
+}
+
+// IMF returns the ICAO/Mode A flag (IMF) of a TIS-B or ADS-R message, reporting
+// how the AA address field is to be interpreted: false means the AA field holds
+// a 24-bit ICAO address, true means it holds a non-ICAO address (a Mode A code
+// with a track file number).
+//
+// The IMF subfield is present only in TIS-B and ADS-R extended squitters (DF18
+// with control field 2, 3, 5 or 6). Its ME bit position is type-code specific:
+// a coarse TIS-B position (control field 3) carries it in ME bit 1, while the
+// fine formats redefine a type-code-specific ME bit (DO-260B §2.2.17 and
+// §2.2.18). It returns an error wrapping ErrNotAvailable for any other format
+// and for message types that do not define an IMF subfield.
+func (m *Message) IMF() (bool, error) {
+	cf, err := m.raw.CF()
+	if err != nil {
+		return false, newError(err, "error retrieving IMF")
+	}
+
+	switch cf {
+	case tisbCoarseCF:
+		return m.raw.esbits(1, 1) == 1, nil
+	case tisbFineCF, tisbFineNonICAOCF, adsrCF:
+		tc, err := m.raw.ESType()
+		if err != nil {
+			return false, newError(err, "error retrieving IMF")
+		}
+
+		bit, ok := imfMEBit(tc)
+		if !ok {
+			return false, newErrorf(ErrNotAvailable,
+				"IMF not defined for type code %d", tc)
+		}
+
+		return m.raw.esbits(bit, bit) == 1, nil
+	default:
+		return false, newErrorf(ErrNotAvailable,
+			"IMF not available in control field %d", cf)
+	}
 }
 
 // TISBCoarsePosition decodes the ME field as a TIS-B coarse airborne position

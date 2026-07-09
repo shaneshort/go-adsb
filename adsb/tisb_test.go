@@ -206,6 +206,53 @@ func TestCPRDefaultNbPairing(t *testing.T) {
 	}
 }
 
+// IMF reports the ICAO/Mode A flag of a TIS-B or ADS-R message. Its ME bit
+// position is type-code specific (DO-260B §2.2.17 and §2.2.18): airborne
+// position bit 8, airborne velocity bit 9, surface position bit 21, coarse
+// position bit 1.
+func TestIMF(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		hex  string
+		want bool
+	}{
+		{"FineAirbornePosition", "9240621D59000000000000000000", true}, // CF2 TC11 bit8
+		{"ADSRAirborneVelocity", "9640621D98800000000000000000", true}, // CF6 TC19 bit9
+		{"FineSurfacePosition", "9240621D28000800000000000000", true},  // CF2 TC5 bit21
+		{"CoarseSet", "9340621D80000000000000000000", true},            // CF3 bit1
+		{"CoarseClear", "9340621D0B8714143E87D0000000", false},         // CF3 bit1 clear
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			imf, err := mustVelMsg(t, c.hex).IMF()
+			if err != nil {
+				t.Fatalf("IMF: %v", err)
+			}
+
+			wantBool(t, "IMF", imf, c.want)
+		})
+	}
+}
+
+// IMF is not available for ADS-B messages, message types without a defined IMF
+// subfield, or non-DF18 formats.
+func TestIMFReject(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		hex  string
+	}{
+		{"ADSB", "9040621D59000000000000000000"},            // CF0 = ADS-B, no IMF
+		{"IdentNoIMFField", "9240621D08000000000000000000"}, // CF2 TC1 has no IMF
+		{"DF17", "8D485020994409940838175B284F"},            // not a DF18 message
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := mustVelMsg(t, c.hex).IMF()
+			if !errors.Is(err, adsb.ErrNotAvailable) {
+				t.Errorf("err = %v, want ErrNotAvailable", err)
+			}
+		})
+	}
+}
+
 // The TIS-B coarse position is only available from a DF18 reply with control
 // field 3 (coarse format TIS-B); other formats return ErrNotAvailable.
 func TestTISBCoarsePositionRejectOther(t *testing.T) {
