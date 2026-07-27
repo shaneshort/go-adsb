@@ -92,8 +92,10 @@ func ExampleInterpretModeS_withReference() {
 	// Output: local position: 52.3206, 4.7357
 }
 
-// ExampleInterpretation_commBCandidates shows that heuristic Comm-B inference
-// produces candidates rather than facts.
+// ExampleInterpretation_commBCandidates shows heuristic Comm-B inference. A
+// reply matching exactly one register is reported as inferred and is decoded
+// into the candidate payload; a reply matching several stays ambiguous, and an
+// ambiguous register is never decoded.
 func ExampleInterpretation_commBCandidates() {
 	data, _ := hex.DecodeString("A0000000BE85F430A40185000000")
 
@@ -101,8 +103,13 @@ func ExampleInterpretation_commBCandidates() {
 
 	for _, c := range in.Candidates {
 		fmt.Printf("candidate: %s (confidence %s)\n", c.BDS, c.Confidence)
+
+		if svi, ok := c.Payload.(adsb.SelectedVerticalIntentionObservation); ok {
+			fmt.Printf("MCP selected altitude: %d ft\n", *svi.MCPSelectedAltitude)
+		}
 	}
-	// Output: candidate: Selected vertical intention (confidence Candidate)
+	// Output: candidate: Selected vertical intention (confidence Inferred)
+	// MCP selected altitude: 32000 ft
 }
 
 // ExampleInterpretBeastFrame interprets a Beast frame, preserving its metadata.

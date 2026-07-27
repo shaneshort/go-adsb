@@ -607,9 +607,7 @@ func testRaw(t *testing.T, m string, results map[string]uint64) {
 	}
 
 	for n, f := range funcs {
-		expErr := fmt.Sprintf(
-			"error retrieving %s from %d: field not available",
-			n, results["DF"])
+		expErr := fmt.Sprintf("error retrieving %s: field not available", n)
 
 		if r, ok := results[n]; ok {
 			b, err := f()
@@ -668,12 +666,7 @@ func testRawMD(t *testing.T, m string, r []byte) {
 			t.Errorf("%s  expected: %x  received: %x", n, r, b)
 		}
 	} else {
-		df, err := rm.DF()
-		if err != nil {
-			t.Errorf("%s  unexpected error: %v", n, err)
-		}
-
-		expErr := fmt.Sprintf("error retrieving %s from %d: field not available", n, df)
+		expErr := fmt.Sprintf("error retrieving %s: field not available", n)
 
 		b, err := rm.MD()
 		if err == nil {

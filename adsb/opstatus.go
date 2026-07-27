@@ -35,6 +35,13 @@ const opStatusType = 31
 // antenna offset subfields.
 const gpsOffsetStep = 2
 
+// Field errors for message fields that are not carried by every downlink
+// format. They are pre-built so that returning one does not allocate; see
+// notAvailable.
+var (
+	errOperationalStatusNotAvailable = notAvailable("operational status")
+)
+
 // OperationalStatus is a decoded ADS-B aircraft operational status message
 // (extended squitter type code 31, BDS 6,5). The layout of the capability
 // class and operational mode regions depends on both the Subtype (0 =
@@ -116,8 +123,7 @@ func (m *Message) OperationalStatus() (*OperationalStatus, error) {
 	}
 
 	if tc != opStatusType {
-		return nil, newErrorf(ErrNotAvailable,
-			"error retrieving operational status from type %d", tc)
+		return nil, errOperationalStatusNotAvailable
 	}
 
 	r := m.raw

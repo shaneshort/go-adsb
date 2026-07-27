@@ -201,9 +201,12 @@ type Warning struct {
 	Err     error
 }
 
-// Candidate is a plausible but unconfirmed Comm-B register identification from
-// heuristic inference. Payload is nil: candidate registers are not decoded
-// blindly, since more than one may match.
+// Candidate is a Comm-B register identification from heuristic inference. When
+// exactly one register matched, Confidence is ConfidenceInferred and Payload
+// holds the decoded register. When several matched, Confidence is
+// ConfidenceCandidate and Payload is nil: an ambiguous register is never
+// decoded, since decoding the wrong one produces plausible but false values. An
+// inferred register is still not a fact.
 type Candidate struct {
 	BDS        adsbtype.BDS
 	Confidence Confidence
@@ -596,9 +599,18 @@ func interpretSurveillance(msg *Message, in *Interpretation) {
 	})
 }
 
+// Reasons recorded on a Candidate, describing how the register was identified.
+const (
+	// reasonSoleMatch is the Candidate reason when exactly one register matched.
+	reasonSoleMatch = "the only register matching the inference heuristics"
+	// reasonMultipleMatches is the Candidate reason when several registers matched.
+	reasonMultipleMatches = "matched BDS inference heuristics"
+)
+
 // interpretCommB classifies a DF20/21 Comm-B reply. Self-identifying registers
 // become known observations; heuristic inference (when enabled) produces
-// candidates rather than facts.
+// candidates rather than facts. A sole match is reported as inferred and is
+// decoded, while several matches stay ambiguous and are not.
 func interpretCommB(msg *Message, opts InterpretOptions, in *Interpretation) {
 	if commBSelfIdentified(msg, in) {
 		return
@@ -613,16 +625,88 @@ func interpretCommB(msg *Message, opts InterpretOptions, in *Interpretation) {
 		return
 	}
 
+	if len(candidates) == 1 {
+		bds := candidates[0]
+
+		in.Candidates = append(in.Candidates, Candidate{
+			BDS:        bds,
+			Confidence: ConfidenceInferred,
+			Payload:    inferredPayload(msg, bds, in),
+			Reason:     reasonSoleMatch,
+		})
+
+		return
+	}
+
 	for _, bds := range candidates {
 		in.Candidates = append(in.Candidates, Candidate{
 			BDS:        bds,
 			Confidence: ConfidenceCandidate,
-			Reason:     "matched BDS inference heuristics",
+			Reason:     reasonMultipleMatches,
 		})
 	}
 
 	if len(candidates) > 1 {
 		in.warn(WarningAmbiguous, "multiple Comm-B register candidates", nil)
+	}
+}
+
+// inferredPayload decodes the sole register that matched the inference
+// heuristics. It is called only when exactly one register matched: an ambiguous
+// MB field is never decoded, since decoding the wrong register produces
+// plausible but false values. A register with no decoder here records an
+// unsupported warning and yields a nil payload.
+//
+// The registers InferBDS can return that have no arm below are BDS 1,0, 2,0,
+// 3,0 and E,7, which commBSelfIdentified intercepts before any inference runs,
+// and BDS 6,1, whose validator implies the BDS 1,7 validator and so can never
+// match alone. Adding a register to InferBDS therefore also needs an arm here.
+//
+//nolint:ireturn // the payload type varies with the inferred register
+func inferredPayload(msg *Message, bds adsbtype.BDS, in *Interpretation) Observation {
+	//nolint:exhaustive // only the registers InferBDS can return alone need an
+	// arm; every other value is reported by the default case
+	switch bds {
+	case adsbtype.BDS17:
+		regs, err := msg.CommonUsageGICB()
+		if err != nil {
+			in.warn(WarningDecodeFailed, "common usage GICB", err)
+
+			return nil
+		}
+
+		return CommonUsageGICBObservation{Registers: regs}
+	case adsbtype.BDS40:
+		svi, err := msg.SelectedVerticalIntention()
+		if err != nil {
+			in.warn(WarningDecodeFailed, "selected vertical intention", err)
+
+			return nil
+		}
+
+		return SelectedVerticalIntentionObservation{SelectedVerticalIntention: svi}
+	case adsbtype.BDS50:
+		tt, err := msg.TrackAndTurn()
+		if err != nil {
+			in.warn(WarningDecodeFailed, "track and turn", err)
+
+			return nil
+		}
+
+		return TrackAndTurnObservation{TrackAndTurn: tt}
+	case adsbtype.BDS60:
+		hs, err := msg.HeadingAndSpeed()
+		if err != nil {
+			in.warn(WarningDecodeFailed, "heading and speed", err)
+
+			return nil
+		}
+
+		return HeadingAndSpeedObservation{HeadingAndSpeed: hs}
+	default:
+		in.warn(WarningUnsupported, "no decoder for the inferred Comm-B register", nil)
+
+		return nil
 	}
 }
 

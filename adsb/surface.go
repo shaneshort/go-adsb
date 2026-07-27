@@ -26,6 +26,13 @@ package adsb
 // track field; the track spans a full 360-degree revolution.
 const surfaceTrackSteps = 128
 
+// Field errors for message fields that are not carried by every downlink
+// format. They are pre-built so that returning one does not allocate; see
+// notAvailable.
+var (
+	errSurfaceMovementNotAvailable = notAvailable("surface movement")
+)
+
 // SurfaceMovement is the decoded ground speed and track from an ADS-B surface
 // position message (extended squitter type codes 5..8, BDS 0,6).
 //
@@ -47,8 +54,7 @@ func (m *Message) SurfaceMovement() (*SurfaceMovement, error) {
 	}
 
 	if tc < surfacePosTypeLo || tc > surfacePosTypeHi {
-		return nil, newErrorf(ErrNotAvailable,
-			"error retrieving surface movement from type %d", tc)
+		return nil, errSurfaceMovementNotAvailable
 	}
 
 	sm := new(SurfaceMovement)

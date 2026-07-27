@@ -49,6 +49,14 @@ const (
 	groundSpeedBase = 16         // knots, lower bound of ground speed code 2
 )
 
+// Field errors for message fields that are not carried by every downlink
+// format. They are pre-built so that returning one does not allocate; see
+// notAvailable.
+var (
+	errIMFNotAvailable        = notAvailable("IMF")
+	errTISBCoarseNotAvailable = notAvailable("TIS-B coarse position")
+)
+
 // TISBCoarsePosition is a decoded TIS-B coarse airborne position message
 // (DF18, control field 3), following the ME bit assignments of DO-260B Figure
 // 2-30. This message format is not related to any ADS-B format.
@@ -123,14 +131,12 @@ func (m *Message) IMF() (bool, error) {
 
 		bit, ok := imfMEBit(tc)
 		if !ok {
-			return false, newErrorf(ErrNotAvailable,
-				"IMF not defined for type code %d", tc)
+			return false, errIMFNotAvailable
 		}
 
 		return m.raw.esbits(bit, bit) == 1, nil
 	default:
-		return false, newErrorf(ErrNotAvailable,
-			"IMF not available in control field %d", cf)
+		return false, errIMFNotAvailable
 	}
 }
 
@@ -145,8 +151,7 @@ func (m *Message) TISBCoarsePosition() (*TISBCoarsePosition, error) {
 	}
 
 	if cf != tisbCoarseCF {
-		return nil, newErrorf(ErrNotAvailable,
-			"TIS-B coarse position not available in control field %d", cf)
+		return nil, errTISBCoarseNotAvailable
 	}
 
 	r := m.raw
