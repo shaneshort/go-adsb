@@ -46,6 +46,13 @@ const (
 	targetHeadingSteps = 512
 )
 
+// Field errors for message fields that are not carried by every downlink
+// format. They are pre-built so that returning one does not allocate; see
+// notAvailable.
+var (
+	errTargetStateNotAvailable = notAvailable("target state")
+)
+
 // TargetState is a decoded ADS-B target state and status message (extended
 // squitter type code 29, subtype 1, BDS 6,2). It reports the aircraft's
 // selected (intended) altitude and heading, the barometric pressure setting,
@@ -87,8 +94,7 @@ func (m *Message) TargetState() (*TargetState, error) {
 	}
 
 	if tc != targetStateType {
-		return nil, newErrorf(ErrNotAvailable,
-			"error retrieving target state from type %d", tc)
+		return nil, errTargetStateNotAvailable
 	}
 
 	r := m.raw

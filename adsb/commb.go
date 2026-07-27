@@ -48,6 +48,13 @@ const (
 	vertRateSignOffset  = 16384 // feet/minute, subtracted when the sign bit is set
 )
 
+// Field errors for message fields that are not carried by every downlink
+// format. They are pre-built so that returning one does not allocate; see
+// notAvailable.
+var (
+	errCommBNotAvailable = notAvailable("Comm-B")
+)
+
 // SelectedVerticalIntention is a decoded Comm-B track selected vertical
 // intention report (BDS 4,0). Selected altitudes and the pressure setting are
 // pointers: a nil pointer means the field's status bit was clear. The VNAV,
@@ -334,7 +341,7 @@ func (m *Message) commBRaw() (*RawMessage, error) {
 	}
 
 	if df != 20 && df != 21 {
-		return nil, newErrorf(ErrNotAvailable, "Comm-B not available in format %d", df)
+		return nil, errCommBNotAvailable
 	}
 
 	return m.raw, nil

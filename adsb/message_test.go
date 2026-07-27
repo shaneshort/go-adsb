@@ -170,7 +170,7 @@ func testMsgICAOErr19(t *testing.T) {
 		t.Fatal("received nil, expected error")
 	}
 
-	if err.Error() != "error retrieving AP from 19: field not available" {
+	if err.Error() != "error retrieving AP: field not available" {
 		t.Error("received unexpected error", err)
 	}
 

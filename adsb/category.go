@@ -38,6 +38,13 @@ var categorySets = map[adsbtype.TYPE]byte{
 	adsbtype.TYPE1: 'D',
 }
 
+// Field errors for message fields that are not carried by every downlink
+// format. They are pre-built so that returning one does not allocate; see
+// notAvailable.
+var (
+	errCategoryNotAvailable = notAvailable("category")
+)
+
 // Category returns the ADS-B emitter category from an identification message
 // (extended squitter type codes 1..4, BDS 0,8). The category set is selected
 // by the type code (TC4 = set A, TC3 = B, TC2 = C, TC1 = D) and combined with
@@ -56,8 +63,7 @@ func (m *Message) Category() (adsbtype.AcCat, error) {
 	// as A5.
 	set, ok := categorySets[adsbtype.TYPE(tc)]
 	if !ok {
-		return "", newErrorf(ErrNotAvailable,
-			"error retrieving category from type %d", tc)
+		return "", errCategoryNotAvailable
 	}
 
 	code := m.raw.esbits(6, 8)

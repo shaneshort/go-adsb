@@ -48,6 +48,13 @@ const (
 	gnssBaroNoData     = 127  // all-ones 7-bit magnitude sentinel ("no data")
 )
 
+// Field errors for message fields that are not carried by every downlink
+// format. They are pre-built so that returning one does not allocate; see
+// notAvailable.
+var (
+	errVelocityNotAvailable = notAvailable("velocity")
+)
+
 // Velocity is a decoded ADS-B airborne velocity message (extended squitter
 // type code 19, BDS 0,9). The Subtype selects which horizontal quantity is
 // reported: subtypes 1 and 2 report ground speed and track; subtypes 3 and 4
@@ -91,8 +98,7 @@ func (m *Message) Velocity() (*Velocity, error) {
 	}
 
 	if adsbtype.TYPE(tc) != adsbtype.TYPE19 {
-		return nil, newErrorf(ErrNotAvailable,
-			"error retrieving velocity from type %d", tc)
+		return nil, errVelocityNotAvailable
 	}
 
 	r := m.raw

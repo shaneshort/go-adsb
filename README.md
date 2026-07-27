@@ -23,23 +23,22 @@ enclosed Mode S or ADS-B data.
 
 ## adsb
 The `adsb` package is a library for decoding Mode S and ADS-B transponder
-messages. `RawMessage` is a low-level wrapper that provides access to
-arbitrary bit sequences and named message fields. `Message` is a
-higher-level abstraction that provides functions to retrieve decoded values
-such as altitude and callsign from the encoded data.
+messages. `InterpretModeS`, `InterpretMessage` and `InterpretBeastFrame` are
+the entry points for decoding a frame. They return an `*Interpretation`
+holding the message family, metadata, typed `Observation` values, Comm-B
+`Candidate`s and `Warning`s, so a caller does not dispatch on every downlink
+format, type code, control field and BDS register method itself. The layer is
+stateless: it reuses the existing decoders, probes only what a message can
+carry, and does not track aircraft state.
+
+Underneath it, `Message` and `RawMessage` are the lower-level API. `Message`
+provides functions to retrieve decoded values such as altitude and callsign
+from the encoded data, and `RawMessage` provides access to arbitrary bit
+sequences and named message fields.
 
 Both `Message` and `RawMessage` designed to accept a `beast.Frame` to
 provide a complete solution for decoding usable values from an incoming data
 stream.
-
-For callers that want a classified result from a single frame without
-dispatching on every downlink format, type code, control field and BDS
-register method, the package also provides a stateless interpretation layer.
-`InterpretModeS`, `InterpretMessage` and `InterpretBeastFrame` return an
-`*Interpretation` holding message metadata, a `MessageFamily`, a list of typed
-`Observation` values, Comm-B `Candidate`s and `Warning`s. It reuses the
-existing decoders and probes only what a message can carry; it does not track
-aircraft state.
 
 ## adsbtype
 The `adsbtype` package provides constants for Mode S and ADS-B data fields
@@ -95,12 +94,37 @@ for {
 }
 ```
 
+## Retrieving a single field
+For a caller that wants one named field rather than a classified result, the
+`Message` methods decode it directly. A field that the received message format
+does not carry returns an error wrapping `ErrNotAvailable`, which is normal
+control flow rather than a failure.
+
+```go
+msg := new(adsb.Message)
+if err := msg.UnmarshalBinary(payload); err != nil {
+	// malformed payload
+}
+alt, err := msg.Alt()
+switch {
+case errors.Is(err, adsb.ErrNotAvailable):
+	// this message format carries no altitude
+case err != nil:
+	// decoding failed
+default:
+	fmt.Println("altitude:", alt)
+}
+```
+
 ## Comm-B ambiguity
 DF20/21 replies carry no register identifier. Registers that self-identify
 become `Observations` with `ConfidenceKnown`. When `InterpretOptions.InferCommB`
-is set, heuristic inference of the remaining registers is reported as
-`Candidates`, never as facts: more than one register may match, and an inferred
-register is not guaranteed to be correct.
+is set, the remaining registers are inferred and reported as `Candidates`, never
+as facts. A sole matching register is reported with `ConfidenceInferred` and its
+decoded value in `Candidate.Payload`; several matching registers are reported
+with `ConfidenceCandidate`, a nil `Payload` and a `WarningAmbiguous`, because an
+ambiguous register is never decoded. An inferred register is not guaranteed to
+be correct.
 
 ## Addresses
 For DF18 the 24-bit address field is not always an ICAO aircraft address:

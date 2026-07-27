@@ -22,6 +22,14 @@
 
 package adsb
 
+// Field errors for message fields that are not carried by every downlink
+// format. They are pre-built so that returning one does not allocate; see
+// notAvailable.
+var (
+	errESTypeNotAvailable     = notAvailable("ESType")
+	errESAltitudeNotAvailable = notAvailable("ESAltitude")
+)
+
 // ESType returns the extended squitter type code.
 func (r *RawMessage) ESType() (uint64, error) {
 	df, err := r.DF()
@@ -42,12 +50,10 @@ func (r *RawMessage) ESType() (uint64, error) {
 		case 0, 1, 2, 5, 6:
 			return r.esbits(1, 5), nil
 		default:
-			return 0, newErrorf(ErrNotAvailable,
-				"error retrieving %s from %d/%d", "ESType", df, cf)
+			return 0, errESTypeNotAvailable
 		}
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"ESType", df)
+		return 0, errESTypeNotAvailable
 	}
 }
 
@@ -64,8 +70,7 @@ func (r *RawMessage) ESAltitude() (uint64, error) {
 	case 0, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 21, 22:
 		return r.esbits(9, 20), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"ESAltitude", tc)
+		return 0, errESAltitudeNotAvailable
 	}
 }
 

@@ -26,6 +26,34 @@ import (
 	"bytes"
 )
 
+// Field errors for message fields that are not carried by every downlink
+// format. They are pre-built so that returning one does not allocate; see
+// notAvailable.
+var (
+	errAANotAvailable = notAvailable("AA")
+	errACNotAvailable = notAvailable("AC")
+	errAFNotAvailable = notAvailable("AF")
+	errAPNotAvailable = notAvailable("AP")
+	errCANotAvailable = notAvailable("CA")
+	errCCNotAvailable = notAvailable("CC")
+	errCFNotAvailable = notAvailable("CF")
+	errDPNotAvailable = notAvailable("DP")
+	errDRNotAvailable = notAvailable("DR")
+	errFSNotAvailable = notAvailable("FS")
+	errIDNotAvailable = notAvailable("ID")
+	errKENotAvailable = notAvailable("KE")
+	errMBNotAvailable = notAvailable("MB")
+	errMDNotAvailable = notAvailable("MD")
+	errMENotAvailable = notAvailable("ME")
+	errMVNotAvailable = notAvailable("MV")
+	errNDNotAvailable = notAvailable("ND")
+	errPINotAvailable = notAvailable("PI")
+	errRINotAvailable = notAvailable("RI")
+	errSLNotAvailable = notAvailable("SL")
+	errUMNotAvailable = notAvailable("UM")
+	errVSNotAvailable = notAvailable("VS")
+)
+
 // RawMessage is a raw binary ADS-B message with helper methods for
 // retrieving message fields and arbitrary bit sequences.
 type RawMessage struct {
@@ -70,8 +98,7 @@ func (r *RawMessage) AA() (uint64, error) {
 	case 11, 17, 18:
 		return r.Bits(9, 32), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"AA", df)
+		return 0, errAANotAvailable
 	}
 }
 
@@ -86,8 +113,7 @@ func (r *RawMessage) AC() (uint64, error) {
 	case 0, 4, 16, 20:
 		return r.Bits(20, 32), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"AC", df)
+		return 0, errACNotAvailable
 	}
 }
 
@@ -102,8 +128,7 @@ func (r *RawMessage) AF() (uint64, error) {
 	case 19:
 		return r.Bits(6, 8), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"AF", df)
+		return 0, errAFNotAvailable
 	}
 }
 
@@ -120,8 +145,7 @@ func (r *RawMessage) AP() (uint64, error) {
 	case 16, 20, 21, 24:
 		return r.Bits(89, 112), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"AP", df)
+		return 0, errAPNotAvailable
 	}
 }
 
@@ -136,8 +160,7 @@ func (r *RawMessage) CA() (uint64, error) {
 	case 11, 17:
 		return r.Bits(6, 8), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"CA", df)
+		return 0, errCANotAvailable
 	}
 }
 
@@ -152,8 +175,7 @@ func (r *RawMessage) CC() (uint64, error) {
 	case 0:
 		return r.Bits(7, 7), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"CC", df)
+		return 0, errCCNotAvailable
 	}
 }
 
@@ -168,8 +190,7 @@ func (r *RawMessage) CF() (uint64, error) {
 	case 18:
 		return r.Bits(6, 8), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"CF", df)
+		return 0, errCFNotAvailable
 	}
 }
 
@@ -195,8 +216,7 @@ func (r *RawMessage) DP() (uint64, error) {
 	case 20, 21:
 		return r.Bits(89, 112), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"DP", df)
+		return 0, errDPNotAvailable
 	}
 }
 
@@ -211,8 +231,7 @@ func (r *RawMessage) DR() (uint64, error) {
 	case 4, 5, 20, 21:
 		return r.Bits(9, 13), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"DR", df)
+		return 0, errDRNotAvailable
 	}
 }
 
@@ -227,8 +246,7 @@ func (r *RawMessage) FS() (uint64, error) {
 	case 4, 5, 20, 21:
 		return r.Bits(6, 8), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"FS", df)
+		return 0, errFSNotAvailable
 	}
 }
 
@@ -243,8 +261,7 @@ func (r *RawMessage) ID() (uint64, error) {
 	case 5, 21:
 		return r.Bits(20, 32), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"ID", df)
+		return 0, errIDNotAvailable
 	}
 }
 
@@ -259,8 +276,7 @@ func (r *RawMessage) KE() (uint64, error) {
 	case 24:
 		return r.Bits(4, 4), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"KE", df)
+		return 0, errKENotAvailable
 	}
 }
 
@@ -275,8 +291,7 @@ func (r *RawMessage) MB() (uint64, error) {
 	case 20, 21:
 		return r.Bits(33, 88), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"MB", df)
+		return 0, errMBNotAvailable
 	}
 }
 
@@ -291,8 +306,7 @@ func (r *RawMessage) MD() ([]byte, error) {
 	case 24:
 		return r.bytes(9, 88), nil
 	default:
-		return nil, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"MD", df)
+		return nil, errMDNotAvailable
 	}
 }
 
@@ -307,8 +321,7 @@ func (r *RawMessage) ME() (uint64, error) {
 	case 17, 18:
 		return r.Bits(33, 88), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"ME", df)
+		return 0, errMENotAvailable
 	}
 }
 
@@ -323,8 +336,7 @@ func (r *RawMessage) MV() (uint64, error) {
 	case 16:
 		return r.Bits(33, 88), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"MV", df)
+		return 0, errMVNotAvailable
 	}
 }
 
@@ -339,8 +351,7 @@ func (r *RawMessage) ND() (uint64, error) {
 	case 24:
 		return r.Bits(5, 8), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"ND", df)
+		return 0, errNDNotAvailable
 	}
 }
 
@@ -357,8 +368,7 @@ func (r *RawMessage) PI() (uint64, error) {
 	case 17, 18:
 		return r.Bits(89, 112), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"PI", df)
+		return 0, errPINotAvailable
 	}
 }
 
@@ -373,8 +383,7 @@ func (r *RawMessage) RI() (uint64, error) {
 	case 0, 16:
 		return r.Bits(14, 17), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"RI", df)
+		return 0, errRINotAvailable
 	}
 }
 
@@ -389,8 +398,7 @@ func (r *RawMessage) SL() (uint64, error) {
 	case 0, 16:
 		return r.Bits(9, 11), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"SL", df)
+		return 0, errSLNotAvailable
 	}
 }
 
@@ -405,8 +413,7 @@ func (r *RawMessage) UM() (uint64, error) {
 	case 4, 5, 20, 21:
 		return r.Bits(14, 19), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"UM", df)
+		return 0, errUMNotAvailable
 	}
 }
 
@@ -421,8 +428,7 @@ func (r *RawMessage) VS() (uint64, error) {
 	case 0, 16:
 		return r.Bits(6, 6), nil
 	default:
-		return 0, newErrorf(ErrNotAvailable, "error retrieving %s from %d",
-			"VS", df)
+		return 0, errVSNotAvailable
 	}
 }
 

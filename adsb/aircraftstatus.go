@@ -39,6 +39,14 @@ const (
 	acasBearingSectors = 60  // highest assigned threat bearing sector
 )
 
+// Field errors for message fields that are not carried by every downlink
+// format. They are pre-built so that returning one does not allocate; see
+// notAvailable.
+var (
+	errAircraftStatusNotAvailable = notAvailable("aircraft status")
+	errACASRANotAvailable         = notAvailable("ACAS RA")
+)
+
 // AircraftStatus is a decoded extended squitter aircraft status message
 // (type code 28). Subtype 1 carries emergency/priority status and the Mode A
 // code; subtype 2 carries a TCAS resolution advisory broadcast. Exactly one
@@ -107,8 +115,7 @@ func (m *Message) AircraftStatus() (*AircraftStatus, error) {
 	}
 
 	if tc != aircraftStatusType {
-		return nil, newErrorf(ErrNotAvailable,
-			"error retrieving aircraft status from type %d", tc)
+		return nil, errAircraftStatusNotAvailable
 	}
 
 	r := m.raw
@@ -189,7 +196,7 @@ func (m *Message) ACASRA() (*ACASRA, error) {
 	case acasRAFormat, commBFormat, commBIdentReply:
 		return decodeACASRA(m.raw), nil
 	default:
-		return nil, newErrorf(ErrNotAvailable, "ACAS RA not available in format %d", df)
+		return nil, errACASRANotAvailable
 	}
 }
 

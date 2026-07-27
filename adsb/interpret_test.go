@@ -191,8 +191,9 @@ func TestInterpretCommBKnown(t *testing.T) {
 	}
 }
 
-// An ambiguous Comm-B reply produces candidates, not facts, only when inference
-// is enabled.
+// A Comm-B reply that does not self-identify produces candidates, not facts,
+// and only when inference is enabled. This vector matches a single register, so
+// its candidate is inferred rather than merely plausible.
 func TestInterpretCommBCandidates(t *testing.T) {
 	// BDS 4,0 does not self-identify; without inference it stays unclassified.
 	off := interpret(t, "A0000000BE85F430A40185000000", adsb.InterpretOptions{})
@@ -536,23 +537,27 @@ func TestWarningCodeString(t *testing.T) {
 // Every observation kind stringifies, including an unknown value.
 func TestObservationKindString(t *testing.T) {
 	cases := map[adsb.ObservationKind]string{
-		adsb.KindCallsign:           "Callsign",
-		adsb.KindCategory:           "Category",
-		adsb.KindAltitude:           "Altitude",
-		adsb.KindIdentity:           "Identity",
-		adsb.KindVelocity:           "Velocity",
-		adsb.KindCPR:                "CPR",
-		adsb.KindSurfaceMovement:    "SurfaceMovement",
-		adsb.KindAircraftStatus:     "AircraftStatus",
-		adsb.KindOperationalStatus:  "OperationalStatus",
-		adsb.KindTargetState:        "TargetState",
-		adsb.KindSurveillance:       "Surveillance",
-		adsb.KindCommB:              "Comm-B",
-		adsb.KindTISBCoarse:         "TISBCoarse",
-		adsb.KindDataLinkCapability: "DataLinkCapability",
-		adsb.KindACASRA:             "ACAS RA",
-		adsb.KindTransponderStatus:  "TransponderStatus",
-		adsb.ObservationKind(200):   "ObservationKind(200)",
+		adsb.KindCallsign:                  "Callsign",
+		adsb.KindCategory:                  "Category",
+		adsb.KindAltitude:                  "Altitude",
+		adsb.KindIdentity:                  "Identity",
+		adsb.KindVelocity:                  "Velocity",
+		adsb.KindCPR:                       "CPR",
+		adsb.KindSurfaceMovement:           "SurfaceMovement",
+		adsb.KindAircraftStatus:            "AircraftStatus",
+		adsb.KindOperationalStatus:         "OperationalStatus",
+		adsb.KindTargetState:               "TargetState",
+		adsb.KindSurveillance:              "Surveillance",
+		adsb.KindCommB:                     "Comm-B",
+		adsb.KindTISBCoarse:                "TISBCoarse",
+		adsb.KindDataLinkCapability:        "DataLinkCapability",
+		adsb.KindACASRA:                    "ACAS RA",
+		adsb.KindTransponderStatus:         "TransponderStatus",
+		adsb.KindSelectedVerticalIntention: "SelectedVerticalIntention",
+		adsb.KindTrackAndTurn:              "TrackAndTurn",
+		adsb.KindHeadingAndSpeed:           "HeadingAndSpeed",
+		adsb.KindCommonUsageGICB:           "CommonUsageGICB",
+		adsb.ObservationKind(200):          "ObservationKind(200)",
 	}
 
 	for k, want := range cases {
@@ -587,4 +592,179 @@ func hasWarning(in *adsb.Interpretation, code adsb.WarningCode) bool {
 	}
 
 	return false
+}
+
+// inferredCase is one single-candidate Comm-B vector and the payload it must
+// decode to.
+type inferredCase struct {
+	name   string
+	vector string
+	bds    adsbtype.BDS
+	kind   adsb.ObservationKind
+	check  func(*testing.T, adsb.Observation)
+}
+
+// checkBDS40 asserts the payload is a decoded selected vertical intention.
+func checkBDS40(t *testing.T, o adsb.Observation) {
+	t.Helper()
+
+	obs, ok := o.(adsb.SelectedVerticalIntentionObservation)
+	if !ok {
+		t.Fatalf("payload is %T, want SelectedVerticalIntentionObservation", o)
+	}
+
+	if obs.MCPSelectedAltitude == nil {
+		t.Error("MCPSelectedAltitude = nil, want a decoded altitude")
+	}
+}
+
+// checkBDS50 asserts the payload is a decoded track and turn report.
+func checkBDS50(t *testing.T, o adsb.Observation) {
+	t.Helper()
+
+	obs, ok := o.(adsb.TrackAndTurnObservation)
+	if !ok {
+		t.Fatalf("payload is %T, want TrackAndTurnObservation", o)
+	}
+
+	if obs.GroundSpeed == nil {
+		t.Error("GroundSpeed = nil, want a decoded speed")
+	}
+}
+
+// checkBDS60 asserts the payload is a decoded heading and speed report.
+func checkBDS60(t *testing.T, o adsb.Observation) {
+	t.Helper()
+
+	obs, ok := o.(adsb.HeadingAndSpeedObservation)
+	if !ok {
+		t.Fatalf("payload is %T, want HeadingAndSpeedObservation", o)
+	}
+
+	if obs.IndicatedAirspeed == nil {
+		t.Error("IndicatedAirspeed = nil, want a decoded airspeed")
+	}
+}
+
+// checkBDS17 asserts the payload is a decoded common usage GICB report.
+func checkBDS17(t *testing.T, o adsb.Observation) {
+	t.Helper()
+
+	obs, ok := o.(adsb.CommonUsageGICBObservation)
+	if !ok {
+		t.Fatalf("payload is %T, want CommonUsageGICBObservation", o)
+	}
+
+	if len(obs.Registers) == 0 {
+		t.Error("Registers is empty, want at least one available register")
+	}
+}
+
+// A Comm-B reply matching exactly one register is reported as inferred, with
+// the register decoded into the candidate payload.
+func TestInterpretCommBInferredSingle(t *testing.T) {
+	cases := []inferredCase{
+		{
+			name: "BDS40", vector: "A0000000BE85F430A40185000000",
+			bds: adsbtype.BDS40, kind: adsb.KindSelectedVerticalIntention,
+			check: checkBDS40,
+		},
+		{
+			name: "BDS50", vector: "A00000008E5C0134A204D7000000",
+			bds: adsbtype.BDS50, kind: adsb.KindTrackAndTurn,
+			check: checkBDS50,
+		},
+		{
+			name: "BDS60", vector: "A0000000E009F5322107E0000000",
+			bds: adsbtype.BDS60, kind: adsb.KindHeadingAndSpeed,
+			check: checkBDS60,
+		},
+		{
+			name: "BDS17", vector: "A00000008A810108000000000000",
+			bds: adsbtype.BDS17, kind: adsb.KindCommonUsageGICB,
+			check: checkBDS17,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assertInferredSingle(t, c)
+		})
+	}
+}
+
+// assertInferredSingle interprets one single-candidate vector and asserts the
+// full inferred-candidate contract.
+func assertInferredSingle(t *testing.T, c inferredCase) {
+	t.Helper()
+
+	in := interpret(t, c.vector, adsb.InterpretOptions{InferCommB: true})
+
+	if len(in.Candidates) != 1 {
+		t.Fatalf("Candidates = %v, want exactly one", in.Candidates)
+	}
+
+	cand := in.Candidates[0]
+
+	if cand.BDS != c.bds {
+		t.Errorf("BDS = %v, want %v", cand.BDS, c.bds)
+	}
+
+	if cand.Confidence != adsb.ConfidenceInferred {
+		t.Errorf("Confidence = %v, want Inferred", cand.Confidence)
+	}
+
+	if cand.Payload == nil {
+		t.Fatal("Payload = nil, want the decoded register")
+	}
+
+	if cand.Payload.ObservationKind() != c.kind {
+		t.Errorf("payload kind = %v, want %v", cand.Payload.ObservationKind(), c.kind)
+	}
+
+	c.check(t, cand.Payload)
+
+	for _, w := range in.Warnings {
+		if w.Code == adsb.WarningAmbiguous {
+			t.Errorf("a sole match must not be ambiguous: %+v", w)
+		}
+	}
+
+	// An inference is not a fact, so it must not reach Observations.
+	if observation(in, adsb.KindCommB) != nil {
+		t.Error("an inferred register must stay in Candidates")
+	}
+}
+
+// A Comm-B reply matching several registers stays ambiguous: every match is a
+// candidate with no payload, and the ambiguity is warned about.
+func TestInterpretCommBAmbiguousUnchanged(t *testing.T) {
+	in := interpret(t, "A0000000E1600000000000000000", adsb.InterpretOptions{InferCommB: true})
+
+	if len(in.Candidates) != 3 {
+		t.Fatalf("Candidates = %v, want three", in.Candidates)
+	}
+
+	for _, c := range in.Candidates {
+		if c.Confidence != adsb.ConfidenceCandidate {
+			t.Errorf("%v: Confidence = %v, want Candidate", c.BDS, c.Confidence)
+		}
+
+		if c.Payload != nil {
+			t.Errorf("%v: Payload = %v, want nil; an ambiguous register is never decoded",
+				c.BDS, c.Payload)
+		}
+	}
+
+	var ambiguous bool
+
+	for _, w := range in.Warnings {
+		if w.Code == adsb.WarningAmbiguous {
+			ambiguous = true
+		}
+	}
+
+	if !ambiguous {
+		t.Error("expected a WarningAmbiguous")
+	}
 }

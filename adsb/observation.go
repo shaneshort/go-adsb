@@ -50,46 +50,43 @@ const (
 	KindDataLinkCapability
 	KindACASRA
 	KindTransponderStatus
+	KindSelectedVerticalIntention
+	KindTrackAndTurn
+	KindHeadingAndSpeed
+	KindCommonUsageGICB
 )
+
+// Names of the observation kinds.
+var mObservationKind = map[ObservationKind]string{
+	KindCallsign:                  "Callsign",
+	KindCategory:                  "Category",
+	KindAltitude:                  "Altitude",
+	KindIdentity:                  "Identity",
+	KindVelocity:                  "Velocity",
+	KindCPR:                       "CPR",
+	KindSurfaceMovement:           "SurfaceMovement",
+	KindAircraftStatus:            "AircraftStatus",
+	KindOperationalStatus:         "OperationalStatus",
+	KindTargetState:               "TargetState",
+	KindSurveillance:              "Surveillance",
+	KindCommB:                     "Comm-B",
+	KindTISBCoarse:                "TISBCoarse",
+	KindDataLinkCapability:        "DataLinkCapability",
+	KindACASRA:                    "ACAS RA",
+	KindTransponderStatus:         "TransponderStatus",
+	KindSelectedVerticalIntention: "SelectedVerticalIntention",
+	KindTrackAndTurn:              "TrackAndTurn",
+	KindHeadingAndSpeed:           "HeadingAndSpeed",
+	KindCommonUsageGICB:           "CommonUsageGICB",
+}
 
 // String returns a human-readable name for the observation kind.
 func (k ObservationKind) String() string {
-	switch k {
-	case KindCallsign:
-		return "Callsign"
-	case KindCategory:
-		return "Category"
-	case KindAltitude:
-		return "Altitude"
-	case KindIdentity:
-		return "Identity"
-	case KindVelocity:
-		return "Velocity"
-	case KindCPR:
-		return "CPR"
-	case KindSurfaceMovement:
-		return "SurfaceMovement"
-	case KindAircraftStatus:
-		return "AircraftStatus"
-	case KindOperationalStatus:
-		return "OperationalStatus"
-	case KindTargetState:
-		return "TargetState"
-	case KindSurveillance:
-		return "Surveillance"
-	case KindCommB:
-		return "Comm-B"
-	case KindTISBCoarse:
-		return "TISBCoarse"
-	case KindDataLinkCapability:
-		return "DataLinkCapability"
-	case KindACASRA:
-		return "ACAS RA"
-	case KindTransponderStatus:
-		return "TransponderStatus"
-	default:
-		return fmt.Sprintf("ObservationKind(%d)", uint8(k))
+	if str, ok := mObservationKind[k]; ok {
+		return str
 	}
+
+	return fmt.Sprintf("ObservationKind(%d)", uint8(k))
 }
 
 // Observation is a single decoded fact recovered from a message by the
@@ -217,10 +214,12 @@ type SurveillanceObservation struct {
 // ObservationKind implements Observation.
 func (SurveillanceObservation) ObservationKind() ObservationKind { return KindSurveillance }
 
-// CommBObservation is a decoded Comm-B register. Confidence reports whether the
-// register self-identified (ConfidenceKnown) or was heuristically inferred.
-// Payload holds the decoded register content as a nested observation when a
-// dedicated observation type exists for it, and is nil otherwise.
+// CommBObservation is a Comm-B register that identified itself through the
+// register code in its MB field. The interpretation layer emits it only with
+// Confidence set to ConfidenceKnown, and Payload holds the decoded register
+// content as a nested observation. A register recovered by heuristic inference
+// is reported as a Candidate instead, never as an observation, so a consumer of
+// inferred registers reads Interpretation.Candidates.
 type CommBObservation struct {
 	BDS        adsbtype.BDS
 	Confidence Confidence
@@ -260,3 +259,43 @@ type TransponderStatusObservation struct {
 func (TransponderStatusObservation) ObservationKind() ObservationKind {
 	return KindTransponderStatus
 }
+
+// SelectedVerticalIntentionObservation is a decoded BDS 4,0 selected vertical
+// intention report, carried as the payload of an inferred Comm-B reply.
+type SelectedVerticalIntentionObservation struct {
+	*SelectedVerticalIntention
+}
+
+// ObservationKind implements Observation.
+func (SelectedVerticalIntentionObservation) ObservationKind() ObservationKind {
+	return KindSelectedVerticalIntention
+}
+
+// TrackAndTurnObservation is a decoded BDS 5,0 track and turn report, carried
+// as the payload of an inferred Comm-B reply.
+type TrackAndTurnObservation struct {
+	*TrackAndTurn
+}
+
+// ObservationKind implements Observation.
+func (TrackAndTurnObservation) ObservationKind() ObservationKind { return KindTrackAndTurn }
+
+// HeadingAndSpeedObservation is a decoded BDS 6,0 heading and speed report,
+// carried as the payload of an inferred Comm-B reply.
+type HeadingAndSpeedObservation struct {
+	*HeadingAndSpeed
+}
+
+// ObservationKind implements Observation.
+func (HeadingAndSpeedObservation) ObservationKind() ObservationKind { return KindHeadingAndSpeed }
+
+// CommonUsageGICBObservation is a decoded BDS 1,7 common usage GICB capability
+// report, carried as the payload of an inferred Comm-B reply. Registers holds
+// the GICB registers reported as available, in ascending register order; it is
+// empty when the report lists none.
+type CommonUsageGICBObservation struct {
+	Registers []adsbtype.BDS
+}
+
+// ObservationKind implements Observation.
+func (CommonUsageGICBObservation) ObservationKind() ObservationKind { return KindCommonUsageGICB }

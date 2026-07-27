@@ -20,8 +20,52 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Package adsb provides objects and methods for decoding and managing
-// raw ADS-B messages.
+// Package adsb decodes Mode S and ADS-B transponder messages.
+//
+// # Interpreting a message
+//
+// InterpretModeS, InterpretMessage and InterpretBeastFrame are the entry points
+// for a caller that wants a classified result from a single frame. Each returns
+// an *Interpretation carrying the message Family, Meta metadata, typed
+// Observations, Comm-B Candidates and Warnings. Meta.DF and Meta.TC discriminate
+// the message, so the caller does not dispatch on the downlink format and type
+// code itself. See ExampleInterpretModeS and ExampleInterpretation_observations.
+//
+// The layer is stateless: it interprets one frame and holds nothing between
+// calls.
+//
+// # Direct field access
+//
+// Message and RawMessage are the lower-level API, for a caller that wants named
+// fields or arbitrary bit ranges directly. A Message method returns an error
+// wrapping ErrNotAvailable when the field is not part of the received message
+// format. That is normal control flow rather than a failure, and is checked with
+// errors.Is(err, ErrNotAvailable). RawMessage exposes the raw Mode S fields such
+// as AA, AC, ME and MB.
+//
+// # Comm-B
+//
+// DF20/21 replies carry no register identifier. A register that self-identifies
+// is decoded and reported as an Observation with ConfidenceKnown. With
+// InterpretOptions.InferCommB set, the remaining registers are inferred: a sole
+// match becomes a Candidate with ConfidenceInferred and the register decoded
+// into Candidate.Payload, while several matches become Candidates with
+// ConfidenceCandidate, a nil Payload and a WarningAmbiguous. An ambiguous
+// register is never decoded, since decoding the wrong one produces plausible but
+// false values. See ExampleInterpretation_commBCandidates.
+//
+// # Position
+//
+// A CPRObservation always carries the encoded position. Local decoding needs a
+// reference position supplied through InterpretOptions.Reference; global even
+// and odd pair decoding is available through DecodeGlobalPosition. See
+// ExampleInterpretModeS_withReference, ExampleCPR_DecodeLocal and
+// ExampleDecodeGlobalPositionRef.
+//
+// # Scope
+//
+// The interpretation layer excludes DF24 Comm-D/ELM high-level assembly, the
+// DF19 and DF22 military formats, vendor and private formats, and UAT (978 MHz).
 package adsb
 
 import "fmt"
@@ -77,4 +121,20 @@ func newErrorf(w error, m string, v ...any) adsbError {
 		msg:  fmt.Sprintf(m, v...),
 		werr: w,
 	}
+}
+
+// notAvailable returns a pre-built error reporting that a named field is not
+// carried by the message format. The result is declared as an error, not as an
+// adsbError, so that returning it does not box the value: probing a field that
+// a message does not carry is the normal outcome of interpreting a frame, not
+// an exception, and must not allocate. Every not-available error whose message
+// is fixed is built once through this function, at package initialisation.
+//
+// A field that the message format cannot carry returns one of these pre-built
+// errors, because that is normal control flow on every probe. A field the
+// format does carry but whose encoding is reserved or unsupported keeps a
+// formatted diagnostic built by newErrorf, because the offending value is the
+// point of the message and the path is cold.
+func notAvailable(field string) error {
+	return newError(ErrNotAvailable, "error retrieving "+field)
 }

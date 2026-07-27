@@ -29,6 +29,17 @@ import (
 	"github.com/ccoveille/go-safecast/v2"
 )
 
+// Field errors for message fields that are not carried by every downlink
+// format. They are pre-built so that returning one does not allocate; see
+// notAvailable.
+var (
+	errAltitudeNotAvailable       = notAvailable("altitude")
+	errAltitudeSourceNotAvailable = notAvailable("altitude source")
+	errCallsignNotAvailable       = notAvailable("callsign")
+	errSquawkNotAvailable         = notAvailable("squawk")
+	errPositionNotAvailable       = notAvailable("position")
+)
+
 // Message provides a high-level abstraction for ADS-B messages. The
 // methods of Message provide convenient access to common data values.
 // Use RawMessage to obtain direct access to the underlying binary data.
@@ -118,7 +129,7 @@ func (m *Message) Alt() (int64, error) {
 
 		return decodeESAlt(alt)
 	default:
-		return 0, newError(ErrNotAvailable, "error retrieving altitude")
+		return 0, errAltitudeNotAvailable
 	}
 }
 
@@ -148,10 +159,10 @@ func (m *Message) AltitudeSource() (AltitudeSource, error) {
 		case tc >= gnssPosTypeLo && tc <= gnssPosTypeHi:
 			return AltitudeGeometric, nil
 		default:
-			return 0, newError(ErrNotAvailable, "error retrieving altitude source")
+			return 0, errAltitudeSourceNotAvailable
 		}
 	default:
-		return 0, newError(ErrNotAvailable, "error retrieving altitude source")
+		return 0, errAltitudeSourceNotAvailable
 	}
 }
 
@@ -169,14 +180,14 @@ func (m *Message) Call() (string, error) {
 	case 17, 18:
 		tc, _ := m.raw.ESType()
 		if tc < 1 || tc > 4 {
-			return "", newError(ErrNotAvailable, "error retrieving callsign")
+			return "", errCallsignNotAvailable
 		}
 	case 20, 21:
 		if m.raw.Bits(33, 40) != 0x20 {
-			return "", newError(ErrNotAvailable, "error retrieving callsign")
+			return "", errCallsignNotAvailable
 		}
 	default:
-		return "", newError(ErrNotAvailable, "error retrieving callsign")
+		return "", errCallsignNotAvailable
 	}
 
 	bits := m.raw.Bits(41, 88)
@@ -200,8 +211,6 @@ var sqkTbl = [][]int{
 
 // Sqk returns the squawk code.
 func (m *Message) Sqk() ([]byte, error) {
-	sqk := make([]byte, 0, 4)
-
 	df, err := m.raw.DF()
 	if err != nil {
 		return nil, newError(err, "error retrieving squawk")
@@ -210,10 +219,12 @@ func (m *Message) Sqk() ([]byte, error) {
 	switch df {
 	case 5, 21:
 	default:
-		return nil, newError(ErrNotAvailable, "error retrieving squawk")
+		return nil, errSquawkNotAvailable
 	}
 
-	sqk = sqk[0:4]
+	// The result is allocated after the format check, so that a message
+	// carrying no squawk costs nothing to reject.
+	sqk := make([]byte, len(sqkTbl))
 
 	for i, v := range sqkTbl {
 		for _, x := range v {
@@ -249,10 +260,10 @@ func (m *Message) CPR() (*CPR, error) {
 		case tc >= gnssPosTypeLo && tc <= gnssPosTypeHi:
 			surface = false
 		default:
-			return nil, newError(ErrNotAvailable, "error retrieving position")
+			return nil, errPositionNotAvailable
 		}
 	default:
-		return nil, newError(ErrNotAvailable, "error retrieving position")
+		return nil, errPositionNotAvailable
 	}
 
 	c := new(CPR)
