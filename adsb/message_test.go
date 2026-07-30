@@ -921,6 +921,70 @@ func TestCallCommBDS20(t *testing.T) {
 	}
 }
 
+// TestCallReservedCodePoint verifies that a callsign field which decodes to a
+// reserved code point is rejected. The IA-5 mapping substitutes '?' for every
+// reserved code point, so any '?' in the decoded string means the field is not
+// a valid callsign. In that case Call returns an error wrapping ErrNotAvailable
+// rather than a string containing '?'. This holds for both the DF17/18
+// extended-squitter identity (type codes 1-4) and the DF20/21 BDS 2,0
+// self-identification paths, and rejects a partially-corrupted callsign where a
+// single character is reserved as readily as an all-reserved one.
+// The AllZero cases carry an all-zero callsign field that decodes to all '?';
+// the Valid cases are regression guards proving a good callsign, including one
+// that ends in trimmed spaces, is not over-rejected.
+func TestCallReservedCodePoint(t *testing.T) {
+	tests := []struct {
+		name    string
+		msg     string
+		want    string
+		wantErr bool
+	}{
+		{name: "DF17IdentAllZero", msg: "8da7a2be230000000000005795ee", wantErr: true},
+		{name: "DF20BDS20AllZero", msg: "A000000020000000000000000000", wantErr: true},
+		{name: "DF20BDS20PartialReserved", msg: "A0000000200420DF820820000000", wantErr: true},
+		{name: "DF17IdentValid", msg: "8dacf84e23101332cf3ca037ef13", want: "DAL2332"},
+		{name: "DF20BDS20Valid", msg: "A0000000200420C4820820000000", want: "ABCD"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b, err := hex.DecodeString(tt.msg)
+			if err != nil {
+				t.Fatalf("hex.DecodeString: %v", err)
+			}
+
+			m := new(adsb.Message)
+
+			err = m.UnmarshalBinary(b)
+			if err != nil {
+				t.Fatalf("UnmarshalBinary: %v", err)
+			}
+
+			call, err := m.Call()
+
+			if tt.wantErr {
+				if !errors.Is(err, adsb.ErrNotAvailable) {
+					t.Fatalf("Call() error = %v, want error wrapping ErrNotAvailable (call = %q)", err, call)
+				}
+
+				if call != "" {
+					t.Errorf("Call() = %q, want empty string on error", call)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Call(): unexpected error %v", err)
+			}
+
+			if call != tt.want {
+				t.Errorf("Call() = %q, want %q", call, tt.want)
+			}
+		})
+	}
+}
+
 func testAlt(t *testing.T, tc *testCase, msg *adsb.Message) {
 	t.Helper()
 

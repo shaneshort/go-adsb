@@ -158,6 +158,12 @@ func (m *Message) AltitudeSource() (AltitudeSource, error) {
 var callChars = []byte(
 	"?ABCDEFGHIJKLMNOPQRSTUVWXYZ????? ???????????????0123456789??????")
 
+// callReserved is the placeholder that callChars substitutes for every
+// reserved or unassigned 6-bit code point. Its presence in a decoded callsign
+// marks the field as invalid, since a legitimate callsign contains only the
+// letters A-Z, the digits 0-9 and a space.
+const callReserved = '?'
+
 // Call returns the callsign.
 func (m *Message) Call() (string, error) {
 	df, err := m.raw.DF()
@@ -188,7 +194,17 @@ func (m *Message) Call() (string, error) {
 		call[i] = callChars[(bits>>(42-(i*6)))&0x3F]
 	}
 
-	return string(bytes.TrimRight(call, " ")), nil
+	cs := bytes.TrimRight(call, " ")
+
+	// A reserved code point decodes to callReserved, so its presence means the
+	// field is not a valid callsign. Reject it with the same not-available
+	// error as the other non-callsign cases, rather than return a string the
+	// library knows to be malformed.
+	if bytes.IndexByte(cs, callReserved) != -1 {
+		return "", newError(ErrNotAvailable, "error retrieving callsign")
+	}
+
+	return string(cs), nil
 }
 
 var sqkTbl = [][]int{
